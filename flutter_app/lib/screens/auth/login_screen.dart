@@ -113,11 +113,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                 hintText: 'freddy@gmail.com',
                               ),
                             ),
-                            const SizedBox(height: 6),
-                            Text(
-                              "Hint: utilisez ces mail pour le moment le backend n'est pas encore opérationnel 'admin@test.com' et 'hr@test.com' pour ces roles.",
-                              style: theme.textTheme.bodySmall,
-                            ),
                             const SizedBox(height: 16),
                             Text(
                               'Password',
