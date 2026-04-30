@@ -38,7 +38,7 @@ class AppTheme {
         foregroundColor: primary,
         elevation: 0,
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: Colors.white,
         elevation: 0,
         surfaceTintColor: Colors.transparent,

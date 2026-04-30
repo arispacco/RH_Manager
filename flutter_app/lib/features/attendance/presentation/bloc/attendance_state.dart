@@ -40,6 +40,9 @@ class WeeklyData extends Equatable {
   List<Object?> get props => [day, rate];
 }
 
+/// Possible states for a location check.
+enum LocationStatus { unknown, checking, withinRange, outOfRange, error }
+
 class AttendanceState extends Equatable {
   const AttendanceState({
     this.clockStatus = ClockStatus.idle,
@@ -53,6 +56,9 @@ class AttendanceState extends Equatable {
     this.presentCount = 0,
     this.lateCount = 0,
     this.absentCount = 0,
+    this.locationStatus = LocationStatus.unknown,
+    this.distanceMeters = 0,
+    this.locationMessage = '',
   });
 
   final ClockStatus clockStatus;
@@ -69,6 +75,11 @@ class AttendanceState extends Equatable {
   final int lateCount;
   final int absentCount;
 
+  // Location data
+  final LocationStatus locationStatus;
+  final double distanceMeters;
+  final String locationMessage;
+
   AttendanceState copyWith({
     ClockStatus? clockStatus,
     DateTime? clockInTime,
@@ -81,6 +92,9 @@ class AttendanceState extends Equatable {
     int? presentCount,
     int? lateCount,
     int? absentCount,
+    LocationStatus? locationStatus,
+    double? distanceMeters,
+    String? locationMessage,
   }) {
     return AttendanceState(
       clockStatus: clockStatus ?? this.clockStatus,
@@ -94,6 +108,9 @@ class AttendanceState extends Equatable {
       presentCount: presentCount ?? this.presentCount,
       lateCount: lateCount ?? this.lateCount,
       absentCount: absentCount ?? this.absentCount,
+      locationStatus: locationStatus ?? this.locationStatus,
+      distanceMeters: distanceMeters ?? this.distanceMeters,
+      locationMessage: locationMessage ?? this.locationMessage,
     );
   }
 
@@ -106,5 +123,7 @@ class AttendanceState extends Equatable {
         errorMessage,
         livePresence,
         weeklyData,
+        locationStatus,
+        distanceMeters,
       ];
 }

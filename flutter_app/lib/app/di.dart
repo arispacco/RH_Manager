@@ -2,6 +2,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
 
 import '../core/network/api_client.dart';
+import '../core/services/location_service.dart';
 import '../features/auth/presentation/bloc/auth_bloc.dart';
 import '../features/attendance/presentation/bloc/attendance_bloc.dart';
 
@@ -21,7 +22,11 @@ Future<void> initDependencies() async {
     () => ApiClient(secureStorage: sl<FlutterSecureStorage>()),
   );
 
+  sl.registerLazySingleton<LocationService>(() => LocationService());
+
   // ── BLoCs ───────────────────────────────────────────────────
   sl.registerLazySingleton<AuthBloc>(() => AuthBloc());
-  sl.registerLazySingleton<AttendanceBloc>(() => AttendanceBloc());
+  sl.registerLazySingleton<AttendanceBloc>(
+    () => AttendanceBloc(locationService: sl<LocationService>()),
+  );
 }

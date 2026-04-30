@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/services/location_service.dart';
 import '../../domain/entities/attendance_entity.dart';
 import 'attendance_event.dart';
 import 'attendance_state.dart';
@@ -7,12 +8,17 @@ import 'attendance_state.dart';
 /// Manages attendance state: clock-in/out for employees,
 /// live presence & weekly trends for HR.
 class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
-  AttendanceBloc() : super(const AttendanceState()) {
+  AttendanceBloc({required LocationService locationService})
+      : _locationService = locationService,
+        super(const AttendanceState()) {
     on<AttendanceLoadToday>(_onLoadToday);
     on<AttendanceClockIn>(_onClockIn);
     on<AttendanceClockOut>(_onClockOut);
     on<AttendanceLivePresenceRequested>(_onLivePresence);
+    on<LocationCheckRequested>(_onLocationCheck);
   }
+
+  final LocationService _locationService;
 
   Future<void> _onLoadToday(
     AttendanceLoadToday event,
@@ -22,7 +28,6 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
     await Future.delayed(const Duration(milliseconds: 400));
 
     // TODO: Fetch from BaaS
-    // For now, simulate "not yet clocked in"
     emit(state.copyWith(clockStatus: ClockStatus.idle));
   }
 
@@ -31,6 +36,16 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
     Emitter<AttendanceState> emit,
   ) async {
     emit(state.copyWith(clockStatus: ClockStatus.loading));
+
+    // Verify location before allowing clock-in
+    if (state.locationStatus != LocationStatus.withinRange) {
+      emit(state.copyWith(
+        clockStatus: ClockStatus.error,
+        errorMessage: 'Please verify your location first.',
+      ));
+      return;
+    }
+
     await Future.delayed(const Duration(milliseconds: 600));
 
     // TODO: Send clock-in to BaaS with QR token + GPS coords
@@ -56,6 +71,45 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
       clockStatus: ClockStatus.clockedOut,
       clockOutTime: DateTime.now(),
     ));
+  }
+
+  Future<void> _onLocationCheck(
+    LocationCheckRequested event,
+    Emitter<AttendanceState> emit,
+  ) async {
+    emit(state.copyWith(
+      locationStatus: LocationStatus.checking,
+      locationMessage: 'Checking your location...',
+    ));
+
+    // TODO: Replace hardcoded office coords with BaaS config
+    final result = await _locationService.checkLocation(
+      officeLat: 3.8480, // Example: Yaoundé coords
+      officeLng: 11.5021,
+      radiusMeters: 200, // 200m radius for testing
+    );
+
+    if (result.errorMessage != null) {
+      emit(state.copyWith(
+        locationStatus: LocationStatus.error,
+        locationMessage: result.errorMessage!,
+      ));
+      return;
+    }
+
+    if (result.isWithinGeofence) {
+      emit(state.copyWith(
+        locationStatus: LocationStatus.withinRange,
+        distanceMeters: result.distanceMeters,
+        locationMessage: 'Within ${result.distanceFormatted} of office',
+      ));
+    } else {
+      emit(state.copyWith(
+        locationStatus: LocationStatus.outOfRange,
+        distanceMeters: result.distanceMeters,
+        locationMessage: '${result.distanceFormatted} from office — too far',
+      ));
+    }
   }
 
   Future<void> _onLivePresence(

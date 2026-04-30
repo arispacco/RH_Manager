@@ -38,3 +38,8 @@ class AttendanceClockOut extends AttendanceEvent {
 class AttendanceLivePresenceRequested extends AttendanceEvent {
   const AttendanceLivePresenceRequested();
 }
+
+/// Employee requests a location check (GPS verification).
+class LocationCheckRequested extends AttendanceEvent {
+  const LocationCheckRequested();
+}

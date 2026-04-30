@@ -23,7 +23,9 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
   @override
   void initState() {
     super.initState();
-    context.read<AttendanceBloc>().add(const AttendanceLoadToday());
+    final bloc = context.read<AttendanceBloc>();
+    bloc.add(const AttendanceLoadToday());
+    bloc.add(const LocationCheckRequested());
   }
 
   @override
@@ -54,7 +56,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
             const SizedBox(height: 16),
 
             // ── Location Status ──
-            _LocationCard(theme: theme),
+            _LocationCard(attendance: attendance),
             const SizedBox(height: 16),
 
             // ── Today's Attendance ──
@@ -192,54 +194,106 @@ class _ScanCard extends StatelessWidget {
 // ── Location Card ──────────────────────────────────────────────
 
 class _LocationCard extends StatelessWidget {
-  const _LocationCard({required this.theme});
+  const _LocationCard({required this.attendance});
 
-  final ThemeData theme;
+  final AttendanceState attendance;
 
   @override
   Widget build(BuildContext context) {
-    // TODO: Replace with real GPS check via geolocator
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: AppTheme.secondary.withAlpha(30),
-                borderRadius: BorderRadius.circular(14),
+    final theme = Theme.of(context);
+    final locStatus = attendance.locationStatus;
+
+    // Determine visual state
+    final (icon, iconColor, bgColor, label, trailing) = switch (locStatus) {
+      LocationStatus.unknown => (
+          Icons.place_outlined,
+          AppTheme.onSurfaceVariant,
+          AppTheme.onSurfaceVariant.withAlpha(30),
+          'Tap to verify location',
+          const Icon(Icons.gps_fixed_rounded, color: AppTheme.secondary),
+        ),
+      LocationStatus.checking => (
+          Icons.my_location_rounded,
+          AppTheme.secondary,
+          AppTheme.secondary.withAlpha(30),
+          'Checking your location...',
+          const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ) as Widget,
+        ),
+      LocationStatus.withinRange => (
+          Icons.place_rounded,
+          const Color(0xFF1E7C4A),
+          const Color(0xFFE9F9F0),
+          attendance.locationMessage,
+          const Icon(Icons.check_circle_rounded, color: Color(0xFF1E7C4A)),
+        ),
+      LocationStatus.outOfRange => (
+          Icons.wrong_location_rounded,
+          const Color(0xFFAF6711),
+          const Color(0xFFFFF4E5),
+          attendance.locationMessage,
+          const Icon(Icons.warning_amber_rounded, color: Color(0xFFAF6711)),
+        ),
+      LocationStatus.error => (
+          Icons.location_disabled_rounded,
+          Colors.red,
+          Colors.red.withAlpha(20),
+          attendance.locationMessage,
+          const Icon(Icons.error_outline_rounded, color: Colors.red),
+        ),
+    };
+
+    return GestureDetector(
+      onTap: locStatus != LocationStatus.checking
+          ? () {
+              context
+                  .read<AttendanceBloc>()
+                  .add(const LocationCheckRequested());
+            }
+          : null,
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: iconColor),
               ),
-              child: const Icon(
-                Icons.place_rounded,
-                color: AppTheme.secondary,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Location Status',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      letterSpacing: 0.8,
-                      fontWeight: FontWeight.w700,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Location Status',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        letterSpacing: 0.8,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    'Within 50m of Office',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+                    const SizedBox(height: 3),
+                    Text(
+                      label,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: iconColor,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const Icon(Icons.check_circle_rounded, color: Colors.green),
-          ],
+              trailing,
+            ],
+          ),
         ),
       ),
     );
