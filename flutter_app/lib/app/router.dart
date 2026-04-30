@@ -6,7 +6,12 @@ import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_state.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
+import '../../features/attendance/presentation/screens/reports_screen.dart';
+import '../../features/attendance/presentation/screens/scanner_screen.dart';
+import '../../features/dashboard/presentation/screens/admin_dashboard.dart';
+import '../../features/dashboard/presentation/screens/employee_dashboard.dart';
 import '../../features/dashboard/presentation/screens/home_shell.dart';
+import '../../features/dashboard/presentation/screens/hr_dashboard.dart';
 
 /// Application route paths.
 class RoutePaths {
@@ -22,16 +27,14 @@ class RoutePaths {
   static const String analytics = 'analytics';
   static const String company = 'company';
   static const String settings = 'settings';
+  static const String scanner = '/scanner';
 }
 
 /// Creates the [GoRouter] instance for the entire app.
-///
-/// The router redirects unauthenticated users to the login screen
-/// and authenticated users away from auth screens.
 GoRouter createRouter(AuthBloc authBloc) {
   return GoRouter(
     initialLocation: RoutePaths.login,
-    debugLogDiagnostics: true,
+    debugLogDiagnostics: false,
     refreshListenable: _GoRouterRefreshStream(authBloc.stream),
     redirect: (context, state) {
       final authState = authBloc.state;
@@ -39,20 +42,12 @@ GoRouter createRouter(AuthBloc authBloc) {
       final isAuthRoute = state.matchedLocation == RoutePaths.login ||
           state.matchedLocation == RoutePaths.register;
 
-      // Not authenticated and not on an auth page → redirect to login
-      if (!isAuthenticated && !isAuthRoute) {
-        return RoutePaths.login;
-      }
-
-      // Authenticated but on an auth page → redirect to home
-      if (isAuthenticated && isAuthRoute) {
-        return RoutePaths.home;
-      }
-
-      return null; // no redirect
+      if (!isAuthenticated && !isAuthRoute) return RoutePaths.login;
+      if (isAuthenticated && isAuthRoute) return '/${RoutePaths.dashboard}';
+      return null;
     },
     routes: [
-      // Auth routes
+      // ── Auth Routes ──
       GoRoute(
         path: RoutePaths.login,
         builder: (context, state) => const LoginScreen(),
@@ -62,7 +57,28 @@ GoRouter createRouter(AuthBloc authBloc) {
         builder: (context, state) => const RegisterScreen(),
       ),
 
-      // Main app shell with nested navigation
+      // ── Scanner (full-screen, outside shell) ──
+      GoRoute(
+        path: RoutePaths.scanner,
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: const ScannerScreen(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 1),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+              )),
+              child: child,
+            );
+          },
+        ),
+      ),
+
+      // ── Main App Shell ──
       ShellRoute(
         builder: (context, state, child) {
           final user = authBloc.state.user;
@@ -70,16 +86,6 @@ GoRouter createRouter(AuthBloc authBloc) {
           return HomeShell(child: child);
         },
         routes: [
-          GoRoute(
-            path: RoutePaths.home,
-            redirect: (context, state) {
-              // Redirect bare "/" to "/dashboard"
-              if (state.matchedLocation == '/') {
-                return '/${RoutePaths.dashboard}';
-              }
-              return null;
-            },
-          ),
           GoRoute(
             path: '/${RoutePaths.dashboard}',
             pageBuilder: (context, state) => _fadeTransitionPage(
@@ -91,22 +97,14 @@ GoRouter createRouter(AuthBloc authBloc) {
             path: '/${RoutePaths.reports}',
             pageBuilder: (context, state) => _fadeTransitionPage(
               key: state.pageKey,
-              child: const _PlaceholderScreen(
-                title: 'Reports',
-                subtitle: 'Attendance reports and analytics.',
-                icon: Icons.description_outlined,
-              ),
+              child: const ReportsScreen(),
             ),
           ),
           GoRoute(
             path: '/${RoutePaths.attendance}',
             pageBuilder: (context, state) => _fadeTransitionPage(
               key: state.pageKey,
-              child: const _PlaceholderScreen(
-                title: 'Attendance',
-                subtitle: 'Attendance records and history.',
-                icon: Icons.history_toggle_off_rounded,
-              ),
+              child: const ReportsScreen(),
             ),
           ),
           GoRoute(
@@ -163,12 +161,11 @@ GoRouter createRouter(AuthBloc authBloc) {
 
 Widget _buildDashboardForRole(UserEntity? user) {
   if (user == null) return const SizedBox.shrink();
-  // TODO: Import and return actual dashboard screens once refactored
-  return _PlaceholderScreen(
-    title: '${user.role.label} Dashboard',
-    subtitle: 'Welcome back, ${user.name}',
-    icon: Icons.dashboard_outlined,
-  );
+  return switch (user.role) {
+    UserRole.admin => const AdminDashboard(),
+    UserRole.hr => const HRDashboard(),
+    UserRole.employee => const EmployeeDashboard(),
+  };
 }
 
 CustomTransitionPage<void> _fadeTransitionPage({
@@ -184,7 +181,6 @@ CustomTransitionPage<void> _fadeTransitionPage({
   );
 }
 
-/// Adapts a [Stream] to a [Listenable] for GoRouter's refreshListenable.
 class _GoRouterRefreshStream extends ChangeNotifier {
   _GoRouterRefreshStream(Stream<dynamic> stream) {
     _subscription = stream.listen((_) => notifyListeners());
@@ -199,7 +195,6 @@ class _GoRouterRefreshStream extends ChangeNotifier {
   }
 }
 
-/// Temporary placeholder screen for routes not yet implemented.
 class _PlaceholderScreen extends StatelessWidget {
   const _PlaceholderScreen({
     required this.title,

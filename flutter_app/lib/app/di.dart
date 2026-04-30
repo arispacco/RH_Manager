@@ -3,6 +3,7 @@ import 'package:get_it/get_it.dart';
 
 import '../core/network/api_client.dart';
 import '../features/auth/presentation/bloc/auth_bloc.dart';
+import '../features/attendance/presentation/bloc/attendance_bloc.dart';
 
 /// Global service locator instance.
 final GetIt sl = GetIt.instance;
@@ -21,10 +22,6 @@ Future<void> initDependencies() async {
   );
 
   // ── BLoCs ───────────────────────────────────────────────────
-  // AuthBloc is registered as a singleton because it must persist
-  // across the entire app lifecycle.
   sl.registerLazySingleton<AuthBloc>(() => AuthBloc());
-
-  // TODO: Register additional BLoCs/repositories as features are built
-  // sl.registerFactory<AttendanceBloc>(() => AttendanceBloc(...));
+  sl.registerLazySingleton<AttendanceBloc>(() => AttendanceBloc());
 }

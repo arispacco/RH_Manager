@@ -1,10 +1,20 @@
 import 'package:flutter/material.dart';
 
-import '../../app/theme/app_theme.dart';
+import '../../../../app/theme/app_theme.dart';
+import '../../domain/entities/attendance_entity.dart';
 
-class ReportsScreen extends StatelessWidget {
+/// Reports screen with attendance history, stats, and filter chips.
+class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
 
+  @override
+  State<ReportsScreen> createState() => _ReportsScreenState();
+}
+
+class _ReportsScreenState extends State<ReportsScreen> {
+  String _selectedFilter = 'Last 7 days';
+
+  // TODO: Replace with BaaS data
   static const _stats = [
     _Stat(label: 'Total Days', value: '7'),
     _Stat(label: 'Present', value: '5'),
@@ -16,20 +26,32 @@ class ReportsScreen extends StatelessWidget {
     _Log(
       date: 'Monday, Oct 23',
       timeRange: '08:55 AM - 05:05 PM',
-      status: 'present',
+      status: AttendanceStatus.present,
       hours: '8h 10m',
     ),
     _Log(
       date: 'Tuesday, Oct 24',
       timeRange: '09:15 AM - 05:30 PM',
-      status: 'late',
+      status: AttendanceStatus.late,
       hours: '8h 15m',
     ),
     _Log(
       date: 'Wednesday, Oct 25',
       timeRange: '08:58 AM - 05:02 PM',
-      status: 'present',
+      status: AttendanceStatus.present,
       hours: '8h 04m',
+    ),
+    _Log(
+      date: 'Thursday, Oct 26',
+      timeRange: '08:30 AM - 05:10 PM',
+      status: AttendanceStatus.present,
+      hours: '8h 40m',
+    ),
+    _Log(
+      date: 'Friday, Oct 27',
+      timeRange: '09:08 AM - 05:15 PM',
+      status: AttendanceStatus.late,
+      hours: '8h 07m',
     ),
   ];
 
@@ -46,33 +68,23 @@ class ReportsScreen extends StatelessWidget {
           style: theme.textTheme.bodyMedium,
         ),
         const SizedBox(height: 16),
+
+        // ── Filter Chips ──
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: [
-            FilterChip(
-              label: const Text('Last 7 days'),
-              selected: true,
-              onSelected: (_) {},
-            ),
-            FilterChip(
-              label: const Text('October'),
-              selected: false,
-              onSelected: (_) {},
-            ),
-            FilterChip(
-              label: const Text('Present'),
-              selected: false,
-              onSelected: (_) {},
-            ),
-            FilterChip(
-              label: const Text('Late'),
-              selected: false,
-              onSelected: (_) {},
-            ),
+            for (final filter in ['Last 7 days', 'October', 'Present', 'Late'])
+              FilterChip(
+                label: Text(filter),
+                selected: _selectedFilter == filter,
+                onSelected: (_) => setState(() => _selectedFilter = filter),
+              ),
           ],
         ),
         const SizedBox(height: 14),
+
+        // ── Stats Grid ──
         GridView.builder(
           itemCount: _stats.length,
           shrinkWrap: true,
@@ -114,6 +126,8 @@ class ReportsScreen extends StatelessWidget {
           },
         ),
         const SizedBox(height: 14),
+
+        // ── Log Details ──
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -128,9 +142,9 @@ class ReportsScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 10),
-                for (final log in _logs) ...[
-                  _LogTile(log: log),
-                  if (log != _logs.last) const Divider(height: 18),
+                for (int i = 0; i < _logs.length; i++) ...[
+                  _LogTile(log: _logs[i]),
+                  if (i < _logs.length - 1) const Divider(height: 18),
                 ],
               ],
             ),
@@ -141,6 +155,8 @@ class ReportsScreen extends StatelessWidget {
   }
 }
 
+// ── Log Tile ───────────────────────────────────────────────────
+
 class _LogTile extends StatelessWidget {
   const _LogTile({required this.log});
 
@@ -149,21 +165,22 @@ class _LogTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final statusStyle = switch (log.status) {
-      'present' => const _StatusColor(
-          label: 'Present',
-          background: Color(0xFFE9F9F0),
-          foreground: Color(0xFF1E7C4A),
+
+    final (label, bgColor, fgColor) = switch (log.status) {
+      AttendanceStatus.present => (
+          'Present',
+          const Color(0xFFE9F9F0),
+          const Color(0xFF1E7C4A),
         ),
-      'late' => const _StatusColor(
-          label: 'Late',
-          background: Color(0xFFFFF4E5),
-          foreground: Color(0xFFAF6711),
+      AttendanceStatus.late => (
+          'Late',
+          const Color(0xFFFFF4E5),
+          const Color(0xFFAF6711),
         ),
-      _ => const _StatusColor(
-          label: 'Absent',
-          background: Color(0xFFEFF1F4),
-          foreground: Color(0xFF5E6270),
+      AttendanceStatus.absent => (
+          'Absent',
+          const Color(0xFFEFF1F4),
+          const Color(0xFF5E6270),
         ),
     };
 
@@ -177,8 +194,10 @@ class _LogTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             color: const Color(0xFFE9EEFF),
           ),
-          child:
-              const Icon(Icons.calendar_month_rounded, color: AppTheme.primary),
+          child: const Icon(
+            Icons.calendar_month_rounded,
+            color: AppTheme.primary,
+          ),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -204,14 +223,14 @@ class _LogTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(999),
-            color: statusStyle.background,
+            color: bgColor,
           ),
           child: Text(
-            statusStyle.label,
+            label,
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,
-              color: statusStyle.foreground,
+              color: fgColor,
             ),
           ),
         ),
@@ -219,6 +238,8 @@ class _LogTile extends StatelessWidget {
     );
   }
 }
+
+// ── Data Classes ───────────────────────────────────────────────
 
 class _Log {
   const _Log({
@@ -230,7 +251,7 @@ class _Log {
 
   final String date;
   final String timeRange;
-  final String status;
+  final AttendanceStatus status;
   final String hours;
 }
 
@@ -239,16 +260,4 @@ class _Stat {
 
   final String label;
   final String value;
-}
-
-class _StatusColor {
-  const _StatusColor({
-    required this.label,
-    required this.background,
-    required this.foreground,
-  });
-
-  final String label;
-  final Color background;
-  final Color foreground;
 }

@@ -1,5 +1,4 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
 
 import '../../domain/entities/attendance_entity.dart';
 import 'attendance_event.dart';

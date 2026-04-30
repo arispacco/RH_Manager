@@ -4,9 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../app/theme/app_theme.dart';
-import '../../../auth/domain/entities/user_entity.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
-import '../../../auth/presentation/bloc/auth_state.dart' as auth;
 import '../../../attendance/domain/entities/attendance_entity.dart';
 import '../../../attendance/presentation/bloc/attendance_bloc.dart';
 import '../../../attendance/presentation/bloc/attendance_event.dart';
@@ -313,7 +311,7 @@ class _AttendanceCard extends StatelessWidget {
             const Divider(height: 22),
             Row(
               children: [
-                Icon(Icons.history_rounded, color: AppTheme.onSurfaceVariant),
+                const Icon(Icons.history_rounded, color: AppTheme.onSurfaceVariant),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text('Status', style: theme.textTheme.bodyMedium),
