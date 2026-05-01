@@ -1,102 +1,51 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
-import '../models/app_user.dart';
-import '../screens/auth/login_screen.dart';
-import '../screens/auth/register_screen.dart';
-import '../screens/home/home_shell.dart';
+import '../features/auth/presentation/bloc/auth_bloc.dart';
+import '../features/auth/presentation/bloc/auth_event.dart';
+import '../features/attendance/presentation/bloc/attendance_bloc.dart';
+import 'di.dart';
+import 'router.dart';
 import 'theme/app_theme.dart';
 
-enum _AuthScreen { login, register }
-
-class AttendancePrototypeApp extends StatefulWidget {
-  const AttendancePrototypeApp({super.key});
+/// Root widget of the AttendanceOS application.
+class AttendanceApp extends StatefulWidget {
+  const AttendanceApp({super.key});
 
   @override
-  State<AttendancePrototypeApp> createState() => _AttendancePrototypeAppState();
+  State<AttendanceApp> createState() => _AttendanceAppState();
 }
 
-class _AttendancePrototypeAppState extends State<AttendancePrototypeApp> {
-  AppUser? _user;
-  _AuthScreen _authScreen = _AuthScreen.login;
+class _AttendanceAppState extends State<AttendanceApp> {
+  late final AuthBloc _authBloc;
+  late final AttendanceBloc _attendanceBloc;
+  late final GoRouter _router;
 
-  void _handleLogin(AppUser user) {
-    setState(() {
-      _user = user;
-    });
-  }
+  @override
+  void initState() {
+    super.initState();
+    _authBloc = sl<AuthBloc>();
+    _attendanceBloc = sl<AttendanceBloc>();
+    _router = createRouter(_authBloc);
 
-  void _showRegister() {
-    setState(() {
-      _authScreen = _AuthScreen.register;
-    });
-  }
-
-  void _showLogin() {
-    setState(() {
-      _authScreen = _AuthScreen.login;
-    });
-  }
-
-  void _logout() {
-    setState(() {
-      _user = null;
-      _authScreen = _AuthScreen.login;
-    });
+    // Check for an existing session on startup
+    _authBloc.add(const AuthCheckRequested());
   }
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'AttendanceOS',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light(),
-      home: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 220),
-        child: _user == null
-            ? _AuthFlow(
-                key: ValueKey(_authScreen),
-                authScreen: _authScreen,
-                onLogin: _handleLogin,
-                onShowLogin: _showLogin,
-                onShowRegister: _showRegister,
-              )
-            : HomeShell(
-                key: ValueKey(_user?.id),
-                user: _user!,
-                onLogout: _logout,
-              ),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<AuthBloc>.value(value: _authBloc),
+        BlocProvider<AttendanceBloc>.value(value: _attendanceBloc),
+      ],
+      child: MaterialApp.router(
+        title: 'AttendanceOS',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light(),
+        routerConfig: _router,
       ),
     );
-  }
-}
-
-class _AuthFlow extends StatelessWidget {
-  const _AuthFlow({
-    super.key,
-    required this.authScreen,
-    required this.onLogin,
-    required this.onShowRegister,
-    required this.onShowLogin,
-  });
-
-  final _AuthScreen authScreen;
-  final ValueChanged<AppUser> onLogin;
-  final VoidCallback onShowRegister;
-  final VoidCallback onShowLogin;
-
-  @override
-  Widget build(BuildContext context) {
-    switch (authScreen) {
-      case _AuthScreen.login:
-        return LoginScreen(
-          onLogin: onLogin,
-          onShowRegister: onShowRegister,
-        );
-      case _AuthScreen.register:
-        return RegisterScreen(
-          onRegistered: onShowLogin,
-          onShowLogin: onShowLogin,
-        );
-    }
   }
 }
