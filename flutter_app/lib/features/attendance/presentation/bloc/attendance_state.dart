@@ -123,7 +123,12 @@ class AttendanceState extends Equatable {
         errorMessage,
         livePresence,
         weeklyData,
+        totalEmployees,
+        presentCount,
+        lateCount,
+        absentCount,
         locationStatus,
         distanceMeters,
+        locationMessage,
       ];
 }
