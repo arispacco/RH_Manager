@@ -51,7 +51,7 @@ class EmployeeDashboard extends StatelessWidget {
                 FilledButton.tonal(
                   onPressed: () {},
                   style: FilledButton.styleFrom(
-                    backgroundColor: Colors.white.withOpacity(0.18),
+                    backgroundColor: Colors.white.withValues(alpha: 0.18),
                     foregroundColor: Colors.white,
                   ),
                   child: const Text('Launch Scanner'),
@@ -70,7 +70,7 @@ class EmployeeDashboard extends StatelessWidget {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: AppTheme.secondaryContainer.withOpacity(0.2),
+                    color: AppTheme.secondaryContainer.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: const Icon(
