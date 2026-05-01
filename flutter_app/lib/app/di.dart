@@ -14,19 +14,29 @@ final GetIt sl = GetIt.instance;
 /// Call this once before `runApp()`.
 Future<void> initDependencies() async {
   // ── Core ────────────────────────────────────────────────────
-  sl.registerLazySingleton<FlutterSecureStorage>(
-    () => const FlutterSecureStorage(),
-  );
+  if (!sl.isRegistered<FlutterSecureStorage>()) {
+    sl.registerLazySingleton<FlutterSecureStorage>(
+      () => const FlutterSecureStorage(),
+    );
+  }
 
-  sl.registerLazySingleton<ApiClient>(
-    () => ApiClient(secureStorage: sl<FlutterSecureStorage>()),
-  );
+  if (!sl.isRegistered<ApiClient>()) {
+    sl.registerLazySingleton<ApiClient>(
+      () => ApiClient(secureStorage: sl<FlutterSecureStorage>()),
+    );
+  }
 
-  sl.registerLazySingleton<LocationService>(() => LocationService());
+  if (!sl.isRegistered<LocationService>()) {
+    sl.registerLazySingleton<LocationService>(() => LocationService());
+  }
 
   // ── BLoCs ───────────────────────────────────────────────────
-  sl.registerLazySingleton<AuthBloc>(() => AuthBloc());
-  sl.registerLazySingleton<AttendanceBloc>(
-    () => AttendanceBloc(locationService: sl<LocationService>()),
-  );
+  if (!sl.isRegistered<AuthBloc>()) {
+    sl.registerLazySingleton<AuthBloc>(() => AuthBloc());
+  }
+  if (!sl.isRegistered<AttendanceBloc>()) {
+    sl.registerLazySingleton<AttendanceBloc>(
+      () => AttendanceBloc(locationService: sl<LocationService>()),
+    );
+  }
 }
