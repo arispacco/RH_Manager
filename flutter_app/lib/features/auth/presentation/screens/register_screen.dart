@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 
-import '../../../../app/router.dart';
-import '../bloc/auth_bloc.dart';
-import '../bloc/auth_event.dart';
-import '../bloc/auth_state.dart';
+import '../../models/app_role.dart';
 
-/// Registration screen — refactored to use BLoC + GoRouter.
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  const RegisterScreen({
+    super.key,
+    required this.onRegistered,
+    required this.onShowLogin,
+  });
+
+  final VoidCallback onRegistered;
+  final VoidCallback onShowLogin;
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -20,8 +21,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _obscurePassword = true;
-  String _selectedType = 'hr';
+  AppRole _selectedType = AppRole.hr;
 
   @override
   void dispose() {
@@ -32,35 +32,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _submit() {
-    if (!_formKey.currentState!.validate()) return;
-
-    context.read<AuthBloc>().add(
-          AuthRegisterRequested(
-            name: _nameController.text.trim(),
-            email: _emailController.text.trim(),
-            password: _passwordController.text,
-            accountType: _selectedType,
-          ),
-        );
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          _selectedType == 'hr'
+          _selectedType == AppRole.hr
               ? 'Request sent. HR/Admin accounts require approval.'
               : 'Request sent. You can sign in once approved.',
         ),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
       ),
     );
-
-    // Navigate back to login after a brief delay
-    Future.delayed(const Duration(milliseconds: 800), () {
-      if (mounted) context.go(RoutePaths.login);
-    });
+    widget.onRegistered();
   }
 
   @override
@@ -109,28 +94,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               children: [
                                 ChoiceChip(
                                   label: const Text('Employee'),
-                                  selected: _selectedType == 'employee',
+                                  selected: _selectedType == AppRole.employee,
                                   onSelected: (_) {
-                                    setState(() => _selectedType = 'employee');
+                                    setState(() {
+                                      _selectedType = AppRole.employee;
+                                    });
                                   },
                                 ),
                                 ChoiceChip(
                                   label: const Text('HR / Admin'),
-                                  selected: _selectedType == 'hr',
+                                  selected: _selectedType == AppRole.hr,
                                   onSelected: (_) {
-                                    setState(() => _selectedType = 'hr');
+                                    setState(() {
+                                      _selectedType = AppRole.hr;
+                                    });
                                   },
                                 ),
                               ],
                             ),
-                            if (_selectedType == 'hr') ...[
+                            if (_selectedType == AppRole.hr) ...[
                               const SizedBox(height: 14),
                               Container(
                                 padding: const EdgeInsets.all(14),
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(16),
                                   color: theme.colorScheme.primary
-                                      .withAlpha(15),
+                                      .withValues(alpha: 0.06),
                                 ),
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -144,8 +133,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                     Expanded(
                                       child: Text(
                                         'Approval required before activation for HR/Admin accounts.',
-                                        style: theme.textTheme.bodySmall
-                                            ?.copyWith(
+                                        style:
+                                            theme.textTheme.bodySmall?.copyWith(
                                           color: theme.colorScheme.primary,
                                         ),
                                       ),
@@ -157,7 +146,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             const SizedBox(height: 18),
                             TextFormField(
                               controller: _nameController,
-                              textInputAction: TextInputAction.next,
                               validator: (value) {
                                 if (value == null || value.trim().isEmpty) {
                                   return 'Full name is required.';
@@ -167,14 +155,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               decoration: const InputDecoration(
                                 labelText: 'Full Name',
                                 hintText: 'Alex Rivers',
-                                prefixIcon: Icon(Icons.person_outline),
                               ),
                             ),
                             const SizedBox(height: 12),
                             TextFormField(
                               controller: _emailController,
                               keyboardType: TextInputType.emailAddress,
-                              textInputAction: TextInputAction.next,
                               validator: (value) {
                                 if (value == null || value.trim().isEmpty) {
                                   return 'Work email is required.';
@@ -187,71 +173,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               decoration: const InputDecoration(
                                 labelText: 'Work Email',
                                 hintText: 'name@company.com',
-                                prefixIcon: Icon(Icons.email_outlined),
                               ),
                             ),
                             const SizedBox(height: 12),
                             TextFormField(
                               controller: _passwordController,
-                              obscureText: _obscurePassword,
-                              textInputAction: TextInputAction.done,
-                              onFieldSubmitted: (_) => _submit(),
+                              obscureText: true,
                               validator: (value) {
                                 if (value == null || value.length < 6) {
                                   return 'Use at least 6 characters.';
                                 }
                                 return null;
                               },
-                              decoration: InputDecoration(
+                              decoration: const InputDecoration(
                                 labelText: 'Create Password',
                                 hintText: '••••••••',
-                                prefixIcon: const Icon(Icons.lock_outline),
-                                suffixIcon: IconButton(
-                                  icon: Icon(
-                                    _obscurePassword
-                                        ? Icons.visibility_off_outlined
-                                        : Icons.visibility_outlined,
-                                  ),
-                                  onPressed: () {
-                                    setState(() {
-                                      _obscurePassword = !_obscurePassword;
-                                    });
-                                  },
-                                ),
                               ),
                             ),
                             const SizedBox(height: 18),
-
-                            // ── Submit ──
-                            BlocBuilder<AuthBloc, AuthState>(
-                              builder: (context, state) {
-                                final isLoading =
-                                    state.status == AuthStatus.loading;
-                                return FilledButton(
-                                  onPressed: isLoading ? null : _submit,
-                                  child: isLoading
-                                      ? const SizedBox(
-                                          height: 20,
-                                          width: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Colors.white,
-                                          ),
-                                        )
-                                      : const Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Text('REQUEST ACCOUNT'),
-                                            SizedBox(width: 8),
-                                            Icon(
-                                              Icons.arrow_forward_rounded,
-                                              size: 18,
-                                            ),
-                                          ],
-                                        ),
-                                );
-                              },
+                            FilledButton(
+                              onPressed: _submit,
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text('REQUEST ACCOUNT'),
+                                  SizedBox(width: 8),
+                                  Icon(Icons.arrow_forward_rounded, size: 18),
+                                ],
+                              ),
                             ),
                           ],
                         ),
@@ -265,7 +214,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     children: [
                       const Text('Already have an account?'),
                       TextButton(
-                        onPressed: () => context.go(RoutePaths.login),
+                        onPressed: widget.onShowLogin,
                         child: const Text('Log in'),
                       ),
                     ],
