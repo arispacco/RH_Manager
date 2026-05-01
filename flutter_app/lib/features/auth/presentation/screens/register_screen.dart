@@ -1,16 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../models/app_role.dart';
+import '../../../../app/router.dart';
+import '../../domain/entities/user_entity.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({
-    super.key,
-    required this.onRegistered,
-    required this.onShowLogin,
-  });
-
-  final VoidCallback onRegistered;
-  final VoidCallback onShowLogin;
+  const RegisterScreen({super.key});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -21,7 +16,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  AppRole _selectedType = AppRole.hr;
+  UserRole _selectedType = UserRole.hr;
 
   @override
   void dispose() {
@@ -39,13 +34,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          _selectedType == AppRole.hr
+          _selectedType == UserRole.hr
               ? 'Request sent. HR/Admin accounts require approval.'
               : 'Request sent. You can sign in once approved.',
         ),
       ),
     );
-    widget.onRegistered();
+    context.go('/${RoutePaths.login}');
   }
 
   @override
@@ -94,25 +89,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               children: [
                                 ChoiceChip(
                                   label: const Text('Employee'),
-                                  selected: _selectedType == AppRole.employee,
+                                  selected: _selectedType == UserRole.employee,
                                   onSelected: (_) {
                                     setState(() {
-                                      _selectedType = AppRole.employee;
+                                      _selectedType = UserRole.employee;
                                     });
                                   },
                                 ),
                                 ChoiceChip(
                                   label: const Text('HR / Admin'),
-                                  selected: _selectedType == AppRole.hr,
+                                  selected: _selectedType == UserRole.hr,
                                   onSelected: (_) {
                                     setState(() {
-                                      _selectedType = AppRole.hr;
+                                      _selectedType = UserRole.hr;
                                     });
                                   },
                                 ),
                               ],
                             ),
-                            if (_selectedType == AppRole.hr) ...[
+                            if (_selectedType == UserRole.hr) ...[
                               const SizedBox(height: 14),
                               Container(
                                 padding: const EdgeInsets.all(14),
@@ -214,7 +209,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     children: [
                       const Text('Already have an account?'),
                       TextButton(
-                        onPressed: widget.onShowLogin,
+                        onPressed: () => context.go('/${RoutePaths.login}'),
                         child: const Text('Log in'),
                       ),
                     ],
