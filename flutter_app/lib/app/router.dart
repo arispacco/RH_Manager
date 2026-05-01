@@ -12,6 +12,8 @@ import '../../features/dashboard/presentation/screens/admin_dashboard.dart';
 import '../../features/dashboard/presentation/screens/employee_dashboard.dart';
 import '../../features/dashboard/presentation/screens/home_shell.dart';
 import '../../features/dashboard/presentation/screens/hr_dashboard.dart';
+import '../../features/employees/presentation/screens/employee_directory_screen.dart';
+import '../../features/settings/presentation/screens/settings_screen.dart';
 
 /// Application route paths.
 class RoutePaths {
@@ -111,11 +113,7 @@ GoRouter createRouter(AuthBloc authBloc) {
             path: '/${RoutePaths.employees}',
             pageBuilder: (context, state) => _fadeTransitionPage(
               key: state.pageKey,
-              child: const _PlaceholderScreen(
-                title: 'Employee Directory',
-                subtitle: 'Directory and profile management.',
-                icon: Icons.groups_2_outlined,
-              ),
+              child: const EmployeeDirectoryScreen(),
             ),
           ),
           GoRoute(
@@ -144,11 +142,7 @@ GoRouter createRouter(AuthBloc authBloc) {
             path: '/${RoutePaths.settings}',
             pageBuilder: (context, state) => _fadeTransitionPage(
               key: state.pageKey,
-              child: const _PlaceholderScreen(
-                title: 'Settings',
-                subtitle: 'Personalization and security settings.',
-                icon: Icons.settings_outlined,
-              ),
+              child: const SettingsScreen(),
             ),
           ),
         ],
