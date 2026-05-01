@@ -100,7 +100,7 @@ class HRDashboard extends StatelessWidget {
                 Text(
                   'Deploy a QR scanner for immediate employee check-ins.',
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: Colors.white.withOpacity(0.82),
+                    color: Colors.white.withValues(alpha: 0.82),
                   ),
                 ),
                 const SizedBox(height: 16),
