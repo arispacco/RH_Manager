@@ -20,9 +20,15 @@ class NetworkFailure extends Failure {
 
 /// Failure returned by the remote server (4xx, 5xx).
 class ServerFailure extends Failure {
-  const ServerFailure({super.message = 'Server error. Please try again later.'});
+  const ServerFailure({
+    super.message = 'Server error. Please try again later.',
+    this.statusCode,
+  });
 
-  final int? statusCode = null;
+  final int? statusCode;
+
+  @override
+  List<Object?> get props => [message, statusCode];
 }
 
 /// Failure when reading/writing local cache.
