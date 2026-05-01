@@ -38,13 +38,14 @@ class AppTheme {
         foregroundColor: primary,
         elevation: 0,
       ),
-      cardTheme: CardTheme(
+      // Flutter 3.41+ expects CardThemeData here (not CardTheme)
+      cardTheme: const CardThemeData(
         color: Colors.white,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-          side: const BorderSide(color: outlineVariant),
+          borderRadius: BorderRadius.all(Radius.circular(24)),
+          side: BorderSide(color: outlineVariant),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
