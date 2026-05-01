@@ -119,7 +119,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(16),
                                   color: theme.colorScheme.primary
-                                      .withOpacity(0.06),
+                                      .withValues(alpha: 0.06),
                                 ),
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
