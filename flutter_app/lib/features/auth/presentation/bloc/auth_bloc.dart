@@ -71,16 +71,19 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(state.copyWith(status: AuthStatus.loading));
 
     try {
-      await _supabase.auth.signUp(
-        email: event.email,
-        password: event.password,
-        data: {
+      final res = await _supabase.functions.invoke(
+        'create_user',
+        body: {
+          'email': event.email,
+          'password': event.password,
           'name': event.name,
-          // Require a company_id for real signup. Mocking it for now.
-          'company_id': '00000000-0000-0000-0000-000000000001', 
-          'role': 'employee',
+          'role': event.accountType,
         },
       );
+
+      if (res.status != 200) {
+        throw Exception('Failed to create user: ${res.data['error'] ?? res.data}');
+      }
 
       emit(state.copyWith(
         status: AuthStatus.unauthenticated,

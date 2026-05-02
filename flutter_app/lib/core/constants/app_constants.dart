@@ -7,11 +7,11 @@ class AppConstants {
   static const String appVersion = '1.0.0';
 
   // Supabase Configuration
-  // Android emulator cannot access host localhost directly; it must use 10.0.2.2.
+  // Android emulator cannot access host localhost directly; it must use 127.0.0.1.
   // Override with --dart-define=SUPABASE_URL=... when using physical devices or cloud Supabase.
   static const String supabaseUrl = String.fromEnvironment(
     'SUPABASE_URL',
-    defaultValue: 'http://10.0.2.2:54331',
+    defaultValue: 'http://127.0.0.1:54331',
   );
   static const String supabaseAnonKey = String.fromEnvironment(
     'SUPABASE_ANON_KEY',
