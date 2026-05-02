@@ -1,7 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 /// Roles a user can have in the application.
-enum UserRole { employee, hr, admin }
+enum UserRole { employee, hr, admin, kiosk }
 
 /// Domain entity representing an authenticated user.
 class UserEntity extends Equatable {
@@ -29,6 +29,7 @@ class UserEntity extends Equatable {
       UserRole.admin => 'Alex Rivers',
       UserRole.hr => 'Sarah Jenkins',
       UserRole.employee => 'Sarah Mitchell',
+      UserRole.kiosk => 'Reception Kiosk',
     };
 
     return UserEntity(
@@ -50,12 +51,14 @@ extension UserRoleX on UserRole {
         UserRole.employee => 'Employee',
         UserRole.hr => 'HR Manager',
         UserRole.admin => 'Super Admin',
+        UserRole.kiosk => 'Kiosk',
       };
 
   String get defaultDepartment => switch (this) {
         UserRole.employee => 'Engineering',
         UserRole.hr => 'Human Resources',
         UserRole.admin => 'Platform Operations',
+        UserRole.kiosk => 'Reception',
       };
 }
 
@@ -64,5 +67,6 @@ UserRole roleFromEmail(String email) {
   final normalized = email.toLowerCase();
   if (normalized.contains('admin')) return UserRole.admin;
   if (normalized.contains('hr')) return UserRole.hr;
+  if (normalized.contains('kiosk')) return UserRole.kiosk;
   return UserRole.employee;
 }

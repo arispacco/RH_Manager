@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/theme/app_theme.dart';
+import '../../../../core/theme/theme_cubit.dart';
 import '../../../auth/domain/entities/user_entity.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
@@ -162,15 +163,27 @@ class SettingsScreen extends StatelessWidget {
                 },
               ),
               const Divider(height: 1, indent: 56),
-              _SettingsTile(
-                icon: Icons.dark_mode_outlined,
-                title: 'Dark Mode',
-                subtitle: 'Coming soon',
-                trailing: const Switch(
-                  value: false,
-                  onChanged: null,
-                ),
-                onTap: () {},
+              BlocBuilder<ThemeCubit, ThemeMode>(
+                builder: (context, themeMode) {
+                  final isDark = themeMode == ThemeMode.dark ||
+                      (themeMode == ThemeMode.system &&
+                          MediaQuery.of(context).platformBrightness ==
+                              Brightness.dark);
+                  return _SettingsTile(
+                    icon: Icons.dark_mode_outlined,
+                    title: 'Dark Mode',
+                    subtitle: 'Switch theme',
+                    trailing: Switch(
+                      value: isDark,
+                      onChanged: (value) {
+                        context.read<ThemeCubit>().toggleTheme();
+                      },
+                    ),
+                    onTap: () {
+                      context.read<ThemeCubit>().toggleTheme();
+                    },
+                  );
+                },
               ),
             ],
           ),

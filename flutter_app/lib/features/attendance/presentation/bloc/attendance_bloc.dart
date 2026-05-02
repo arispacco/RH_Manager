@@ -1,4 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../../../app/di.dart';
 
 import '../../../../core/services/location_service.dart';
 import '../../domain/entities/attendance_entity.dart';
@@ -79,35 +82,69 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
   ) async {
     emit(state.copyWith(
       locationStatus: LocationStatus.checking,
-      locationMessage: 'Checking your location...',
+      locationMessage: 'Fetching geofence config from server...',
     ));
 
-    // TODO: Replace hardcoded office coords with BaaS config
-    final result = await _locationService.checkLocation(
-      officeLat: 3.8480, // Example: Yaoundé coords
-      officeLng: 11.5021,
-      radiusMeters: 200, // 200m radius for testing
-    );
+    try {
+      final _supabase = sl<SupabaseClient>();
+      final user = _supabase.auth.currentUser;
+      if (user == null) throw Exception('Not authenticated');
 
-    if (result.errorMessage != null) {
+      // 1. Get the user's company_id
+      final profile = await _supabase
+          .from('profiles')
+          .select('company_id')
+          .eq('id', user.id)
+          .single();
+      final companyId = profile['company_id'];
+
+      // 2. Get the GPS config for this company
+      final config = await _supabase
+          .from('qr_configs')
+          .select('office_lat, office_lng, radius_meters')
+          .eq('company_id', companyId)
+          .single();
+
+      final officeLat = config['office_lat'] as double;
+      final officeLng = config['office_lng'] as double;
+      final radiusMeters = (config['radius_meters'] as num).toDouble();
+
+      emit(state.copyWith(
+        locationMessage: 'Checking your physical location...',
+      ));
+
+      // 3. Compare physical location with company's GPS config
+      final result = await _locationService.checkLocation(
+        officeLat: officeLat,
+        officeLng: officeLng,
+        radiusMeters: radiusMeters,
+      );
+
+      if (result.errorMessage != null) {
+        emit(state.copyWith(
+          locationStatus: LocationStatus.error,
+          locationMessage: result.errorMessage!,
+        ));
+        return;
+      }
+
+      if (result.isWithinGeofence) {
+        emit(state.copyWith(
+          locationStatus: LocationStatus.withinRange,
+          distanceMeters: result.distanceMeters,
+          locationMessage: 'Within ${result.distanceFormatted} of office',
+        ));
+      } else {
+        emit(state.copyWith(
+          locationStatus: LocationStatus.outOfRange,
+          distanceMeters: result.distanceMeters,
+          locationMessage: '${result.distanceFormatted} from office — too far',
+        ));
+      }
+    } catch (e) {
       emit(state.copyWith(
         locationStatus: LocationStatus.error,
-        locationMessage: result.errorMessage!,
-      ));
-      return;
-    }
-
-    if (result.isWithinGeofence) {
-      emit(state.copyWith(
-        locationStatus: LocationStatus.withinRange,
-        distanceMeters: result.distanceMeters,
-        locationMessage: 'Within ${result.distanceFormatted} of office',
-      ));
-    } else {
-      emit(state.copyWith(
-        locationStatus: LocationStatus.outOfRange,
-        distanceMeters: result.distanceMeters,
-        locationMessage: '${result.distanceFormatted} from office — too far',
+        locationMessage: 'Failed to fetch GPS config: $e',
       ));
     }
   }

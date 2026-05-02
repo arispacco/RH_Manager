@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../features/auth/presentation/bloc/auth_bloc.dart';
 import '../features/auth/presentation/bloc/auth_event.dart';
 import '../features/attendance/presentation/bloc/attendance_bloc.dart';
+import '../core/theme/theme_cubit.dart';
 import 'di.dart';
 import 'router.dart';
 import 'theme/app_theme.dart';
@@ -20,6 +21,7 @@ class AttendanceApp extends StatefulWidget {
 class _AttendanceAppState extends State<AttendanceApp> {
   late final AuthBloc _authBloc;
   late final AttendanceBloc _attendanceBloc;
+  late final ThemeCubit _themeCubit;
   late final GoRouter _router;
 
   @override
@@ -27,6 +29,7 @@ class _AttendanceAppState extends State<AttendanceApp> {
     super.initState();
     _authBloc = sl<AuthBloc>();
     _attendanceBloc = sl<AttendanceBloc>();
+    _themeCubit = sl<ThemeCubit>();
     _router = createRouter(_authBloc);
 
     // Check for an existing session on startup
@@ -39,12 +42,19 @@ class _AttendanceAppState extends State<AttendanceApp> {
       providers: [
         BlocProvider<AuthBloc>.value(value: _authBloc),
         BlocProvider<AttendanceBloc>.value(value: _attendanceBloc),
+        BlocProvider<ThemeCubit>.value(value: _themeCubit),
       ],
-      child: MaterialApp.router(
-        title: 'AttendanceOS',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.light(),
-        routerConfig: _router,
+      child: BlocBuilder<ThemeCubit, ThemeMode>(
+        builder: (context, themeMode) {
+          return MaterialApp.router(
+            title: 'AttendanceOS',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.light(),
+            darkTheme: AppTheme.dark(),
+            themeMode: themeMode,
+            routerConfig: _router,
+          );
+        },
       ),
     );
   }

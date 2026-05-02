@@ -1,16 +1,15 @@
 # attendance_os_mobile
 
-A new Flutter project.
+## Supabase setup (Flutter mobile)
 
-## Getting Started
+Default local config is now Android-emulator friendly:
+- `SUPABASE_URL` defaults to `http://10.0.2.2:54331`
+- `SUPABASE_ANON_KEY` defaults to the local publishable key
 
-This project is a starting point for a Flutter application.
+If you use a physical device or cloud Supabase, override at run time:
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```bash
+flutter run \
+  --dart-define=SUPABASE_URL=https://<your-project>.supabase.co \
+  --dart-define=SUPABASE_ANON_KEY=sb_publishable_xxx
+```

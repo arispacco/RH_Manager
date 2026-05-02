@@ -132,6 +132,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 decoration: const InputDecoration(
                                   hintText: 'name@company.com',
                                   prefixIcon: Icon(Icons.email_outlined),
+                                  helperText: 'Try admin@, hr@, kiosk@ for roles',
                                 ),
                               ),
                               const SizedBox(height: 16),

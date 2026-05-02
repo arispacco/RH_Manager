@@ -6,8 +6,18 @@ class AppConstants {
   static const String appName = 'AttendanceOS';
   static const String appVersion = '1.0.0';
 
-  // API — Update this when the BaaS URL is available
-  static const String baseUrl = 'https://api.attendanceos.com';
+  // Supabase Configuration
+  // Android emulator cannot access host localhost directly; it must use 10.0.2.2.
+  // Override with --dart-define=SUPABASE_URL=... when using physical devices or cloud Supabase.
+  static const String supabaseUrl = String.fromEnvironment(
+    'SUPABASE_URL',
+    defaultValue: 'http://10.0.2.2:54331',
+  );
+  static const String supabaseAnonKey = String.fromEnvironment(
+    'SUPABASE_ANON_KEY',
+    defaultValue: 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH',
+  );
+
   static const int connectTimeout = 15000; // ms
   static const int receiveTimeout = 15000; // ms
 
