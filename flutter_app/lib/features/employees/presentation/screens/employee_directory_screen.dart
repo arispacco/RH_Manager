@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_theme.dart';
 import '../../../attendance/domain/entities/attendance_entity.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../features/auth/presentation/bloc/auth_bloc.dart';
+import '../../../../features/auth/presentation/bloc/auth_event.dart';
+import '../../../../features/auth/presentation/bloc/auth_state.dart';
 
 /// Employee directory with search, department filters, and status badges.
 class EmployeeDirectoryScreen extends StatefulWidget {
@@ -106,12 +110,129 @@ class _EmployeeDirectoryScreenState extends State<EmployeeDirectoryScreen> {
     }).toList();
   }
 
+  void _showCreateUserSheet(BuildContext context) {
+    final theme = Theme.of(context);
+    final nameController = TextEditingController();
+    final emailController = TextEditingController();
+    final passwordController = TextEditingController();
+    String selectedRole = 'employee';
+    final formKey = GlobalKey<FormState>();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (sheetContext) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
+            left: 24,
+            right: 24,
+            top: 24,
+          ),
+          child: StatefulBuilder(
+            builder: (context, setSheetState) {
+              return SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Create New User',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: nameController,
+                      decoration: const InputDecoration(labelText: 'Full Name'),
+                      validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: emailController,
+                      decoration: const InputDecoration(labelText: 'Email'),
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (v) => (v == null || !v.contains('@')) ? 'Valid email required' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: passwordController,
+                      decoration: const InputDecoration(labelText: 'Temporary Password'),
+                      obscureText: true,
+                      validator: (v) => (v == null || v.length < 6) ? 'Min 6 chars' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: selectedRole,
+                      decoration: const InputDecoration(labelText: 'Role'),
+                      items: const [
+                        DropdownMenuItem(value: 'employee', child: Text('Employee')),
+                        DropdownMenuItem(value: 'hr', child: Text('Human Resources')),
+                        DropdownMenuItem(value: 'kiosk', child: Text('Kiosk Device')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) setSheetState(() => selectedRole = val);
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    BlocConsumer<AuthBloc, AuthState>(
+                      listener: (context, state) {
+                         if (state.errorMessage != null) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.errorMessage!), backgroundColor: Colors.red));
+                         } else if (state.status == AuthStatus.unauthenticated && state.errorMessage == null) {
+                            // Success
+                            Navigator.pop(sheetContext);
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User created successfully!'), backgroundColor: Colors.green));
+                         }
+                      },
+                      builder: (context, state) {
+                        final isLoading = state.status == AuthStatus.loading;
+                        return FilledButton(
+                          onPressed: isLoading ? null : () {
+                            if (formKey.currentState!.validate()) {
+                              context.read<AuthBloc>().add(AuthRegisterRequested(
+                                name: nameController.text,
+                                email: emailController.text,
+                                password: passwordController.text,
+                                accountType: selectedRole,
+                              ));
+                            }
+                          },
+                          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+                          child: isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Create User'),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                ),
+                ),
+              );
+            }
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final results = _filtered;
 
-    return ListView(
+    return Scaffold(
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showCreateUserSheet(context),
+        icon: const Icon(Icons.person_add_alt_1_rounded),
+        label: const Text('Add User'),
+      ),
+      body: ListView(
       padding: const EdgeInsets.all(20),
       children: [
         Text('Employee Directory', style: theme.textTheme.headlineMedium),
@@ -194,6 +315,7 @@ class _EmployeeDirectoryScreenState extends State<EmployeeDirectoryScreen> {
             ),
           ),
       ],
+    ),
     );
   }
 }
@@ -301,8 +423,9 @@ class _EmployeeCard extends StatelessWidget {
       builder: (context) {
         return Padding(
           padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
             children: [
               CircleAvatar(
                 radius: 36,
@@ -353,6 +476,7 @@ class _EmployeeCard extends StatelessWidget {
                 child: const Text('Close'),
               ),
             ],
+          ),
           ),
         );
       },

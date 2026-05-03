@@ -18,6 +18,13 @@ class AttendanceApp extends StatefulWidget {
   State<AttendanceApp> createState() => _AttendanceAppState();
 }
 
+class _NoScrollbarBehavior extends ScrollBehavior {
+  @override
+  Widget buildScrollbar(BuildContext context, Widget child, ScrollableDetails details) {
+    return child; // Returns the child without wrapping it in a Scrollbar
+  }
+}
+
 class _AttendanceAppState extends State<AttendanceApp> {
   late final AuthBloc _authBloc;
   late final AttendanceBloc _attendanceBloc;
@@ -53,6 +60,7 @@ class _AttendanceAppState extends State<AttendanceApp> {
             darkTheme: AppTheme.dark(),
             themeMode: themeMode,
             routerConfig: _router,
+            scrollBehavior: _NoScrollbarBehavior(),
           );
         },
       ),

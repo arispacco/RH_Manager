@@ -154,8 +154,11 @@ class _StatCard extends StatelessWidget {
       child: Card(
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              children: [
               Container(
                 width: 44,
                 height: 44,
@@ -180,6 +183,7 @@ class _StatCard extends StatelessWidget {
                 ],
               ),
             ],
+            ),
           ),
         ),
       ),

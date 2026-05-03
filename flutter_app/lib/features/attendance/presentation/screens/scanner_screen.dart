@@ -98,9 +98,10 @@ class _ScannerScreenState extends State<ScannerScreen>
 
             return Padding(
               padding: const EdgeInsets.all(28),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                   Container(
                     width: 72,
                     height: 72,
@@ -164,6 +165,7 @@ class _ScannerScreenState extends State<ScannerScreen>
                       child: const Text('Done'),
                     ),
                 ],
+              ),
               ),
             );
           },
@@ -273,15 +275,16 @@ class _ScannerScreenState extends State<ScannerScreen>
 
   Widget _buildManualEntry(ThemeData theme) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Card(
-          color: Colors.white,
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Card(
+            color: Colors.white,
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
                 Container(
                   width: 72,
                   height: 72,
@@ -351,6 +354,7 @@ class _ScannerScreenState extends State<ScannerScreen>
             ),
           ),
         ),
+      ),
       ),
     );
   }

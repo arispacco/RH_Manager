@@ -4,6 +4,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:intl/intl.dart';
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 
 import '../../../../app/theme/app_theme.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
@@ -24,6 +28,9 @@ class _KioskDashboardState extends State<KioskDashboard> {
   int _secondsRemaining = 15;
   String _currentQrData = '';
   String _currentTime = '';
+  String? _companyId;
+  String? _qrSecret;
+  bool _isLoadingConfig = true;
 
   @override
   void initState() {
@@ -31,16 +38,40 @@ class _KioskDashboardState extends State<KioskDashboard> {
     _updateClock();
     _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) => _updateClock());
     
-    _generateNewQr();
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_secondsRemaining > 1) {
-        setState(() {
-          _secondsRemaining--;
-        });
-      } else {
-        _generateNewQr();
-      }
-    });
+    _fetchKioskConfig();
+  }
+
+  Future<void> _fetchKioskConfig() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final user = supabase.auth.currentUser;
+      if (user == null) throw Exception('Kiosk not logged in');
+
+      final profile = await supabase.from('profiles').select('company_id').eq('id', user.id).single();
+      _companyId = profile['company_id'];
+
+      final config = await supabase.from('qr_configs').select('qr_secret, rotation_seconds').eq('company_id', _companyId as Object).single();
+      _qrSecret = config['qr_secret'];
+      
+      setState(() {
+        _isLoadingConfig = false;
+        _secondsRemaining = config['rotation_seconds'] ?? 15;
+      });
+
+      _generateNewQr();
+      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (_secondsRemaining > 1) {
+          setState(() {
+            _secondsRemaining--;
+          });
+        } else {
+          _generateNewQr();
+        }
+      });
+    } catch (e) {
+       // Ignore error handling for prototype simplicity, but set loading false
+       setState(() { _isLoadingConfig = false; });
+    }
   }
 
   void _updateClock() {
@@ -50,10 +81,18 @@ class _KioskDashboardState extends State<KioskDashboard> {
   }
 
   void _generateNewQr() {
+    if (_companyId == null || _qrSecret == null) return;
+    
     final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final dataToSign = '$_companyId:$timestamp';
+    
+    // Generate HMAC-SHA256 signature
+    final hmac = Hmac(sha256, utf8.encode(_qrSecret!));
+    final signature = hmac.convert(utf8.encode(dataToSign)).toString();
+    
     setState(() {
-      _currentQrData = 'COMPANY_ID_MOCK_$timestamp';
-      _secondsRemaining = 15;
+      _currentQrData = '$dataToSign:$signature';
+      _secondsRemaining = 15; // Could be dynamic from config
     });
   }
 
@@ -67,6 +106,15 @@ class _KioskDashboardState extends State<KioskDashboard> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final screenHeight = MediaQuery.of(context).size.height;
+    
+    // Responsive sizing based on screen height
+    final isSmallScreen = screenHeight < 700;
+    final double qrSize = isSmallScreen ? 200.0 : 300.0;
+    final double titleFontSize = isSmallScreen ? 42.0 : 64.0;
+    final double iconSize = isSmallScreen ? 48.0 : 64.0;
+    final double spacingLarge = isSmallScreen ? 30.0 : 60.0;
+    final double spacingSmall = isSmallScreen ? 12.0 : 24.0;
     
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
@@ -87,18 +135,18 @@ class _KioskDashboardState extends State<KioskDashboard> {
             
             Center(
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                  Icon(
                     Icons.business_center_rounded,
-                    size: 64,
+                    size: iconSize,
                     color: AppTheme.secondary,
                   ),
-                  const SizedBox(height: 24),
+                  SizedBox(height: spacingSmall),
                   Text(
                     _currentTime,
                     style: theme.textTheme.headlineMedium?.copyWith(
-                      fontSize: 64,
+                      fontSize: titleFontSize,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 2,
                     ),
@@ -110,9 +158,14 @@ class _KioskDashboardState extends State<KioskDashboard> {
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  const SizedBox(height: 60),
+                  SizedBox(height: spacingLarge),
                   
                   // QR Code Card
+                  if (_isLoadingConfig)
+                    const CircularProgressIndicator()
+                  else if (_currentQrData.isEmpty)
+                    const Text('Error loading Kiosk configuration. Check if company has qr_configs set.')
+                  else
                   Card(
                     elevation: 12,
                     shadowColor: AppTheme.primary.withAlpha(50),
@@ -126,7 +179,7 @@ class _KioskDashboardState extends State<KioskDashboard> {
                           QrImageView(
                             data: _currentQrData,
                             version: QrVersions.auto,
-                            size: 300.0,
+                            size: qrSize,
                             backgroundColor: Colors.white,
                             eyeStyle: const QrEyeStyle(
                               eyeShape: QrEyeShape.square,
@@ -165,7 +218,7 @@ class _KioskDashboardState extends State<KioskDashboard> {
                     ),
                   ),
                   
-                  const SizedBox(height: 60),
+                  SizedBox(height: spacingLarge),
                   Text(
                     'Scan with your AttendanceOS app to clock in',
                     style: theme.textTheme.titleMedium?.copyWith(

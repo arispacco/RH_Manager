@@ -40,7 +40,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
   ) async {
     emit(state.copyWith(clockStatus: ClockStatus.loading));
 
-    // Verify location before allowing clock-in
+    // Client-side quick location check validation
     if (state.locationStatus != LocationStatus.withinRange) {
       emit(state.copyWith(
         clockStatus: ClockStatus.error,
@@ -49,17 +49,47 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
       return;
     }
 
-    await Future.delayed(const Duration(milliseconds: 600));
+    try {
+      // 1. Get raw GPS coordinates
+      final position = await _locationService.getCurrentPosition();
+      if (position == null) {
+         emit(state.copyWith(
+          clockStatus: ClockStatus.error,
+          errorMessage: 'Failed to get GPS location. Make sure GPS is enabled.',
+        ));
+        return;
+      }
 
-    // TODO: Send clock-in to BaaS with QR token + GPS coords
-    final now = DateTime.now();
-    final isLate = now.hour >= 9;
+      // 2. Call the secure clock_in RPC function on Supabase
+      final _supabase = sl<SupabaseClient>();
+      final response = await _supabase.rpc('clock_in', params: {
+        'scanned_token': event.qrToken,
+        'user_lat': position.latitude,
+        'user_lng': position.longitude,
+      });
 
-    emit(state.copyWith(
-      clockStatus: ClockStatus.clockedIn,
-      clockInTime: now,
-      todayStatus: isLate ? AttendanceStatus.late : AttendanceStatus.present,
-    ));
+      // 3. Update state on success
+      final now = DateTime.now();
+      final isLate = now.hour >= 9; // Placeholder logic, could be pulled from DB
+      
+      emit(state.copyWith(
+        clockStatus: ClockStatus.clockedIn,
+        clockInTime: now,
+        todayStatus: isLate ? AttendanceStatus.late : AttendanceStatus.present,
+      ));
+
+    } catch (e) {
+      // Handle Postgres Exceptions thrown by the RPC (e.g., "Too far", "Already clocked in")
+      String errorMsg = e.toString();
+      if (e is PostgrestException) {
+        errorMsg = e.message;
+      }
+      
+      emit(state.copyWith(
+        clockStatus: ClockStatus.error,
+        errorMessage: errorMsg,
+      ));
+    }
   }
 
   Future<void> _onClockOut(
@@ -67,13 +97,28 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
     Emitter<AttendanceState> emit,
   ) async {
     emit(state.copyWith(clockStatus: ClockStatus.loading));
-    await Future.delayed(const Duration(milliseconds: 400));
 
-    // TODO: Send clock-out to BaaS
-    emit(state.copyWith(
-      clockStatus: ClockStatus.clockedOut,
-      clockOutTime: DateTime.now(),
-    ));
+    try {
+      final _supabase = sl<SupabaseClient>();
+      
+      // Call the secure clock_out RPC function
+      await _supabase.rpc('clock_out');
+
+      emit(state.copyWith(
+        clockStatus: ClockStatus.clockedOut,
+        clockOutTime: DateTime.now(),
+      ));
+    } catch (e) {
+      String errorMsg = e.toString();
+      if (e is PostgrestException) {
+        errorMsg = e.message;
+      }
+      
+      emit(state.copyWith(
+        clockStatus: ClockStatus.error,
+        errorMessage: errorMsg,
+      ));
+    }
   }
 
   Future<void> _onLocationCheck(
