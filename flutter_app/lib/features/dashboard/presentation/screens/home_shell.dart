@@ -38,13 +38,24 @@ class HomeShell extends StatelessWidget {
       path: '/${RoutePaths.dashboard}',
       label: 'Dashboard',
       icon: Icons.dashboard_outlined,
-      roles: {UserRole.employee, UserRole.hr, UserRole.admin},
+      roles: {
+        UserRole.employee,
+        UserRole.hr,
+        UserRole.admin,
+        UserRole.super_admin,
+        UserRole.owner
+      },
     ),
     _NavItem(
       path: '/${RoutePaths.employees}',
       label: 'Employees',
       icon: Icons.groups_2_outlined,
-      roles: {UserRole.hr, UserRole.admin},
+      roles: {
+        UserRole.hr,
+        UserRole.admin,
+        UserRole.super_admin,
+        UserRole.owner
+      },
     ),
     _NavItem(
       path: '/${RoutePaths.attendance}',
@@ -56,25 +67,41 @@ class HomeShell extends StatelessWidget {
       path: '/${RoutePaths.reports}',
       label: 'Reports',
       icon: Icons.description_outlined,
-      roles: {UserRole.hr, UserRole.admin},
+      roles: {
+        UserRole.hr,
+        UserRole.admin,
+        UserRole.super_admin,
+        UserRole.owner
+      },
     ),
     _NavItem(
       path: '/${RoutePaths.analytics}',
       label: 'Analytics',
       icon: Icons.trending_up_rounded,
-      roles: {UserRole.admin},
+      roles: {UserRole.admin, UserRole.super_admin, UserRole.owner},
     ),
     _NavItem(
       path: '/${RoutePaths.company}',
       label: 'Company',
       icon: Icons.apartment_rounded,
-      roles: {UserRole.hr, UserRole.admin},
+      roles: {
+        UserRole.hr,
+        UserRole.admin,
+        UserRole.super_admin,
+        UserRole.owner
+      },
     ),
     _NavItem(
       path: '/${RoutePaths.settings}',
       label: 'Settings',
       icon: Icons.settings_outlined,
-      roles: {UserRole.employee, UserRole.hr, UserRole.admin},
+      roles: {
+        UserRole.employee,
+        UserRole.hr,
+        UserRole.admin,
+        UserRole.super_admin,
+        UserRole.owner
+      },
     ),
   ];
 
@@ -93,8 +120,8 @@ class HomeShell extends StatelessWidget {
         final mobileItems = visibleItems.take(4).toList(growable: false);
 
         final currentPath = GoRouterState.of(context).matchedLocation;
-        final currentMobileIndex = mobileItems
-            .indexWhere((item) => currentPath.startsWith(item.path));
+        final currentMobileIndex =
+            mobileItems.indexWhere((item) => currentPath.startsWith(item.path));
         final safeIndex = currentMobileIndex < 0 ? 0 : currentMobileIndex;
 
         return Scaffold(

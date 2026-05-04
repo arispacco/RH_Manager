@@ -48,7 +48,7 @@ GoRouter createRouter(AuthBloc authBloc) {
           state.matchedLocation == RoutePaths.register;
 
       if (!isAuthenticated && !isAuthRoute) return RoutePaths.login;
-      
+
       if (isAuthenticated && isAuthRoute) {
         if (user?.role == UserRole.kiosk) {
           return RoutePaths.kiosk;
@@ -57,7 +57,9 @@ GoRouter createRouter(AuthBloc authBloc) {
       }
 
       // Block non-kiosk routes for kiosk users
-      if (isAuthenticated && user?.role == UserRole.kiosk && state.matchedLocation != RoutePaths.kiosk) {
+      if (isAuthenticated &&
+          user?.role == UserRole.kiosk &&
+          state.matchedLocation != RoutePaths.kiosk) {
         return RoutePaths.kiosk;
       }
 
@@ -71,7 +73,10 @@ GoRouter createRouter(AuthBloc authBloc) {
       ),
       GoRoute(
         path: RoutePaths.register,
-        builder: (context, state) => const RegisterScreen(),
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return RegisterScreen(initialType: extra?['type'] as String?);
+        },
       ),
 
       // ── Kiosk Route (outside shell) ──
@@ -177,10 +182,14 @@ GoRouter createRouter(AuthBloc authBloc) {
 Widget _buildDashboardForRole(UserEntity? user) {
   if (user == null) return const SizedBox.shrink();
   return switch (user.role) {
-    UserRole.admin => const AdminDashboard(),
+    UserRole.admin ||
+    UserRole.super_admin ||
+    UserRole.owner =>
+      const AdminDashboard(),
     UserRole.hr => const HRDashboard(),
     UserRole.employee => const EmployeeDashboard(),
-    UserRole.kiosk => const SizedBox.shrink(), // Kiosk is not in the shell, this won't be reached
+    UserRole.kiosk => const SizedBox
+        .shrink(), // Kiosk is not in the shell, this won't be reached
   };
 }
 

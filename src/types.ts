@@ -1,4 +1,10 @@
-export type Role = 'employee' | 'hr' | 'admin' | 'guest';
+export type Role =
+  | "employee"
+  | "hr"
+  | "admin"
+  | "guest"
+  | "super_admin"
+  | "owner";
 
 export interface User {
   id: string;
@@ -15,7 +21,7 @@ export interface AttendanceRecord {
   date: string;
   clockIn: string;
   clockOut?: string;
-  status: 'present' | 'late' | 'absent';
+  status: "present" | "late" | "absent";
 }
 
 export interface Company {
@@ -23,8 +29,8 @@ export interface Company {
   name: string;
   domain: string;
   employees: number;
-  plan: 'Starter' | 'Premium' | 'Enterprise';
-  status: 'Active' | 'Paused' | 'Pending';
+  plan: "Starter" | "Premium" | "Enterprise";
+  status: "Active" | "Paused" | "Pending";
   appliedAt?: string;
   contactName?: string;
   contactEmail?: string;
