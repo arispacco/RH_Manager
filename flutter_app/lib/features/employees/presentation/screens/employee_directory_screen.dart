@@ -169,7 +169,7 @@ class _EmployeeDirectoryScreenState extends State<EmployeeDirectoryScreen> {
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
-                      value: selectedRole,
+                      initialValue: selectedRole,
                       decoration: const InputDecoration(labelText: 'Role'),
                       items: const [
                         DropdownMenuItem(value: 'employee', child: Text('Employee')),

@@ -61,8 +61,8 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
       }
 
       // 2. Call the secure clock_in RPC function on Supabase
-      final _supabase = sl<SupabaseClient>();
-      final response = await _supabase.rpc('clock_in', params: {
+      final supabase = sl<SupabaseClient>();
+      await supabase.rpc('clock_in', params: {
         'scanned_token': event.qrToken,
         'user_lat': position.latitude,
         'user_lng': position.longitude,
@@ -99,10 +99,10 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
     emit(state.copyWith(clockStatus: ClockStatus.loading));
 
     try {
-      final _supabase = sl<SupabaseClient>();
+      final supabase = sl<SupabaseClient>();
       
       // Call the secure clock_out RPC function
-      await _supabase.rpc('clock_out');
+      await supabase.rpc('clock_out');
 
       emit(state.copyWith(
         clockStatus: ClockStatus.clockedOut,
@@ -131,12 +131,12 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
     ));
 
     try {
-      final _supabase = sl<SupabaseClient>();
-      final user = _supabase.auth.currentUser;
+      final supabase = sl<SupabaseClient>();
+      final user = supabase.auth.currentUser;
       if (user == null) throw Exception('Not authenticated');
 
       // 1. Get the user's company_id
-      final profile = await _supabase
+      final profile = await supabase
           .from('profiles')
           .select('company_id')
           .eq('id', user.id)
@@ -144,7 +144,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
       final companyId = profile['company_id'];
 
       // 2. Get the GPS config for this company
-      final config = await _supabase
+      final config = await supabase
           .from('qr_configs')
           .select('office_lat, office_lng, radius_meters')
           .eq('company_id', companyId)
