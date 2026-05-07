@@ -7,15 +7,17 @@ class AppConstants {
   static const String appVersion = '1.0.0';
 
   // Supabase Configuration
-  // Android emulator cannot access host localhost directly; it must use 127.0.0.1.
-  // Override with --dart-define=SUPABASE_URL=... when using physical devices or cloud Supabase.
+  // Local Supabase via Docker Compose on port 54332
+  // For Android emulator: use 10.0.2.2 (host machine) instead of localhost
+  // For physical device: use actual machine IP or cloud URL
   static const String supabaseUrl = String.fromEnvironment(
     'SUPABASE_URL',
-    defaultValue: 'http://127.0.0.1:54331',
+    defaultValue: 'http://127.0.0.1:8000',
   );
   static const String supabaseAnonKey = String.fromEnvironment(
     'SUPABASE_ANON_KEY',
-    defaultValue: 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH',
+    defaultValue:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlc3QiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTYyMzAzMDMzMywiZXhwIjoyMDAwMDAwMDAwfQ.your_test_key',
   );
 
   static const int connectTimeout = 15000; // ms

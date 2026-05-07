@@ -6,6 +6,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/network/api_client.dart';
 import '../core/services/location_service.dart';
 import '../core/theme/theme_cubit.dart';
+import '../services/postgresql_service.dart';
+import '../cubits/auth_cubit.dart';
+import '../cubits/attendance_cubit.dart';
 import '../features/auth/presentation/bloc/auth_bloc.dart';
 import '../features/attendance/presentation/bloc/attendance_bloc.dart';
 
@@ -21,7 +24,8 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton<SharedPreferences>(() => prefs);
 
   if (!sl.isRegistered<ThemeCubit>()) {
-    sl.registerLazySingleton<ThemeCubit>(() => ThemeCubit(sl<SharedPreferences>()));
+    sl.registerLazySingleton<ThemeCubit>(
+        () => ThemeCubit(sl<SharedPreferences>()));
   }
 
   if (!sl.isRegistered<SupabaseClient>()) {
@@ -42,6 +46,23 @@ Future<void> initDependencies() async {
 
   if (!sl.isRegistered<LocationService>()) {
     sl.registerLazySingleton<LocationService>(() => LocationService());
+  }
+
+  if (!sl.isRegistered<PostgreSQLService>()) {
+    sl.registerLazySingleton<PostgreSQLService>(() => PostgreSQLService());
+  }
+
+  // ── Cubits ──────────────────────────────────────────────────
+  if (!sl.isRegistered<AuthCubit>()) {
+    sl.registerLazySingleton<AuthCubit>(
+      () => AuthCubit(sl<PostgreSQLService>()),
+    );
+  }
+
+  if (!sl.isRegistered<AttendanceCubit>()) {
+    sl.registerLazySingleton<AttendanceCubit>(
+      () => AttendanceCubit(sl<PostgreSQLService>()),
+    );
   }
 
   // ── BLoCs ───────────────────────────────────────────────────

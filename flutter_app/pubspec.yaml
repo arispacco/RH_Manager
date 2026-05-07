@@ -44,6 +44,7 @@ dependencies:
   # Networking
   dio: ^5.7.0
   supabase_flutter: ^2.5.4
+  postgres: ^3.3.0
 
   # Dependency Injection
   get_it: ^8.0.3
@@ -68,6 +69,7 @@ dependencies:
   connectivity_plus: ^6.1.4
   logger: ^2.5.0
   crypto: ^3.0.7
+  bcrypt: ^1.2.0
 
 dev_dependencies:
   flutter_test:

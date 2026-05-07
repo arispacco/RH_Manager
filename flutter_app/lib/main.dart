@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:get_it/get_it.dart';
 
 import 'app/app.dart';
 import 'app/di.dart';
-import 'core/constants/app_constants.dart';
+import 'services/postgresql_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,14 +23,15 @@ Future<void> main() async {
     ),
   );
 
-  // Initialize Supabase
-  await Supabase.initialize(
-    url: AppConstants.supabaseUrl,
-    anonKey: AppConstants.supabaseAnonKey,
-  );
-
   // Initialize dependency injection
   await initDependencies();
+
+  // Initialize PostgreSQL connection
+  try {
+    await GetIt.instance<PostgreSQLService>().initialize();
+  } catch (e) {
+    // Log error in production
+  }
 
   runApp(const AttendanceApp());
 }
