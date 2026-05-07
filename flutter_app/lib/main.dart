@@ -4,6 +4,7 @@ import 'package:get_it/get_it.dart';
 
 import 'app/app.dart';
 import 'app/di.dart';
+import 'app/config.dart';
 import 'services/postgresql_service.dart';
 
 Future<void> main() async {
@@ -26,11 +27,13 @@ Future<void> main() async {
   // Initialize dependency injection
   await initDependencies();
 
-  // Initialize PostgreSQL connection
-  try {
-    await GetIt.instance<PostgreSQLService>().initialize();
-  } catch (e) {
-    // Log error in production
+  // Initialize PostgreSQL connection if in local mode
+  if (AppConfig.isLocal) {
+    try {
+      await sl<PostgreSQLService>().initialize();
+    } catch (e) {
+      // Log error
+    }
   }
 
   runApp(const AttendanceApp());

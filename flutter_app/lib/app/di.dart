@@ -13,7 +13,7 @@ import 'config.dart';
 
 final sl = GetIt.instance;
 
-Future<void> init() async {
+Future<void> initDependencies() async {
   // Common Services
   if (!sl.isRegistered<SharedPreferences>()) {
     final sharedPreferences = await SharedPreferences.getInstance();
