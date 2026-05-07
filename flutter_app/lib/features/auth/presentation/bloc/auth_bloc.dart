@@ -37,10 +37,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           final profile = await _postgres!.getProfile(storedUserId);
           emit(state.copyWith(status: AuthStatus.authenticated, user: _mapProfileToUserEntity(profile)));
         } else {
-          // Supabase Mode
           final session = _supabase!.auth.currentSession;
           if (session != null) {
-             // Fetch profile from Supabase
              final response = await _supabase!.from('profiles').select().eq('id', storedUserId).single();
              final profile = pg_models.Profile.fromJson(response);
              emit(state.copyWith(status: AuthStatus.authenticated, user: _mapProfileToUserEntity(profile)));
@@ -65,7 +63,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         await _secureStorage.write(key: _sessionKey, value: result.id);
         emit(state.copyWith(status: AuthStatus.authenticated, user: _mapProfileToUserEntity(result.profile)));
       } else {
-        // Supabase Mode
         final response = await _supabase!.auth.signInWithPassword(email: event.email, password: event.password);
         if (response.user != null) {
           await _secureStorage.write(key: _sessionKey, value: response.user!.id);
@@ -79,13 +76,28 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
   }
 
+  Future<void> _onRegisterRequested(AuthRegisterRequested event, Emitter<AuthState> emit) async {
+    emit(state.copyWith(status: AuthStatus.loading));
+    try {
+      if (AppConfig.isLocal) {
+        if (!_postgres!.isConnected) await _postgres!.initialize();
+        await _postgres!.signUp(event.email, event.password);
+        emit(state.copyWith(status: AuthStatus.unauthenticated, errorMessage: null));
+      } else {
+        await _supabase!.auth.signUp(email: event.email, password: event.password);
+        emit(state.copyWith(status: AuthStatus.unauthenticated, errorMessage: null));
+      }
+    } catch (e) {
+      emit(state.copyWith(status: AuthStatus.unauthenticated, errorMessage: e.toString()));
+    }
+  }
+
   Future<void> _onLogoutRequested(AuthLogoutRequested event, Emitter<AuthState> emit) async {
     await _secureStorage.delete(key: _sessionKey);
     if (AppConfig.isSupabase) await _supabase!.auth.signOut();
     emit(const AuthState(status: AuthStatus.unauthenticated));
   }
 
-  // Same helpers as before...
   UserEntity _mapProfileToUserEntity(pg_models.Profile profile) {
     return UserEntity(
       id: profile.id,
@@ -118,10 +130,5 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       pg_models.AppRole.owner => 'Executive',
       pg_models.AppRole.kiosk => 'Reception',
     };
-  }
-
-  @override
-  Future<void> _onRegisterRequested(AuthRegisterRequested event, Emitter<AuthState> emit) async {
-    // Similar dual logic... (truncated for brevity but I'll write the full one in the tool)
   }
 }
