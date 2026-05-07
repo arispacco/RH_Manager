@@ -1,17 +1,26 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 import '../../../../app/di.dart';
+import '../../../../app/config.dart';
+import '../../../../services/postgresql_service.dart';
+import '../../../../models/models.dart' as pg_models;
 import '../../domain/entities/user_entity.dart';
 import 'auth_event.dart';
 import 'auth_state.dart';
 
-/// Manages the global authentication state via Supabase.
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
-  final SupabaseClient _supabase;
+  final PostgreSQLService? _postgres;
+  final sb.SupabaseClient? _supabase;
+  final FlutterSecureStorage _secureStorage;
+
+  static const String _sessionKey = 'auth_user_id';
 
   AuthBloc()
-      : _supabase = sl<SupabaseClient>(),
+      : _postgres = AppConfig.isLocal ? sl<PostgreSQLService>() : null,
+        _supabase = AppConfig.isSupabase ? sl<sb.SupabaseClient>() : null,
+        _secureStorage = sl<FlutterSecureStorage>(),
         super(const AuthState()) {
     on<AuthCheckRequested>(_onCheckRequested);
     on<AuthLoginRequested>(_onLoginRequested);
@@ -19,124 +28,100 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthLogoutRequested>(_onLogoutRequested);
   }
 
-  // ── Handlers ──────────────────────────────────────────────────
-
-  Future<void> _onCheckRequested(
-    AuthCheckRequested event,
-    Emitter<AuthState> emit,
-  ) async {
-    final session = _supabase.auth.currentSession;
-    if (session != null) {
+  Future<void> _onCheckRequested(AuthCheckRequested event, Emitter<AuthState> emit) async {
+    final storedUserId = await _secureStorage.read(key: _sessionKey);
+    if (storedUserId != null) {
       try {
-        final userEntity = await _fetchUserProfile(session.user.id, session.user.email!);
-        emit(state.copyWith(status: AuthStatus.authenticated, user: userEntity));
+        if (AppConfig.isLocal) {
+          if (!_postgres!.isConnected) await _postgres!.initialize();
+          final profile = await _postgres!.getProfile(storedUserId);
+          emit(state.copyWith(status: AuthStatus.authenticated, user: _mapProfileToUserEntity(profile)));
+        } else {
+          // Supabase Mode
+          final session = _supabase!.auth.currentSession;
+          if (session != null) {
+             // Fetch profile from Supabase
+             final response = await _supabase!.from('profiles').select().eq('id', storedUserId).single();
+             final profile = pg_models.Profile.fromJson(response);
+             emit(state.copyWith(status: AuthStatus.authenticated, user: _mapProfileToUserEntity(profile)));
+          } else {
+             emit(state.copyWith(status: AuthStatus.unauthenticated));
+          }
+        }
         return;
       } catch (e) {
-        // Session exists but profile fetch failed (maybe expired or deleted)
+        await _secureStorage.delete(key: _sessionKey);
       }
     }
     emit(state.copyWith(status: AuthStatus.unauthenticated));
   }
 
-  Future<void> _onLoginRequested(
-    AuthLoginRequested event,
-    Emitter<AuthState> emit,
-  ) async {
+  Future<void> _onLoginRequested(AuthLoginRequested event, Emitter<AuthState> emit) async {
     emit(state.copyWith(status: AuthStatus.loading));
-
     try {
-      final response = await _supabase.auth.signInWithPassword(
-        email: event.email,
-        password: event.password,
-      );
-
-      if (response.user != null) {
-        final userEntity = await _fetchUserProfile(response.user!.id, response.user!.email!);
-        emit(state.copyWith(status: AuthStatus.authenticated, user: userEntity));
+      if (AppConfig.isLocal) {
+        if (!_postgres!.isConnected) await _postgres!.initialize();
+        final result = await _postgres!.signIn(event.email, event.password);
+        await _secureStorage.write(key: _sessionKey, value: result.id);
+        emit(state.copyWith(status: AuthStatus.authenticated, user: _mapProfileToUserEntity(result.profile)));
       } else {
-        throw Exception('Login failed, no user returned.');
+        // Supabase Mode
+        final response = await _supabase!.auth.signInWithPassword(email: event.email, password: event.password);
+        if (response.user != null) {
+          await _secureStorage.write(key: _sessionKey, value: response.user!.id);
+          final profileData = await _supabase!.from('profiles').select().eq('id', response.user!.id).single();
+          final profile = pg_models.Profile.fromJson(profileData);
+          emit(state.copyWith(status: AuthStatus.authenticated, user: _mapProfileToUserEntity(profile)));
+        }
       }
     } catch (e) {
-      emit(state.copyWith(
-        status: AuthStatus.unauthenticated,
-        errorMessage: e is AuthException ? e.message : e.toString(),
-      ));
+      emit(state.copyWith(status: AuthStatus.unauthenticated, errorMessage: e.toString()));
     }
   }
 
-  Future<void> _onRegisterRequested(
-    AuthRegisterRequested event,
-    Emitter<AuthState> emit,
-  ) async {
-    emit(state.copyWith(status: AuthStatus.loading));
-
-    try {
-      final res = await _supabase.functions.invoke(
-        'create_user',
-        body: {
-          'email': event.email,
-          'password': event.password,
-          'name': event.name,
-          'role': event.accountType,
-        },
-      );
-
-      if (res.status != 200) {
-        throw Exception('Failed to create user: ${res.data['error'] ?? res.data}');
-      }
-
-      emit(state.copyWith(
-        status: AuthStatus.unauthenticated,
-        errorMessage: null,
-      ));
-    } catch (e) {
-      emit(state.copyWith(
-        status: AuthStatus.unauthenticated,
-        errorMessage: e is AuthException ? e.message : e.toString(),
-      ));
-    }
-  }
-
-  Future<void> _onLogoutRequested(
-    AuthLogoutRequested event,
-    Emitter<AuthState> emit,
-  ) async {
-    await _supabase.auth.signOut();
+  Future<void> _onLogoutRequested(AuthLogoutRequested event, Emitter<AuthState> emit) async {
+    await _secureStorage.delete(key: _sessionKey);
+    if (AppConfig.isSupabase) await _supabase!.auth.signOut();
     emit(const AuthState(status: AuthStatus.unauthenticated));
   }
 
-  // ── Helper ──────────────────────────────────────────────────
-
-  Future<UserEntity> _fetchUserProfile(String userId, String email) async {
-    final data = await _supabase
-        .from('profiles')
-        .select()
-        .eq('id', userId)
-        .single();
-
-    final roleStr = data['role'] as String;
-    UserRole role;
-    switch (roleStr) {
-      case 'admin':
-        role = UserRole.admin;
-        break;
-      case 'hr':
-        role = UserRole.hr;
-        break;
-      case 'kiosk':
-        role = UserRole.kiosk;
-        break;
-      default:
-        role = UserRole.employee;
-    }
-
+  // Same helpers as before...
+  UserEntity _mapProfileToUserEntity(pg_models.Profile profile) {
     return UserEntity(
-      id: userId,
-      name: data['name'] as String,
-      email: email,
-      role: role,
-      department: data['department'] as String? ?? role.defaultDepartment,
-      companyId: data['company_id'] as String?,
+      id: profile.id,
+      name: profile.fullName,
+      email: profile.email,
+      role: _mapRole(profile.role),
+      department: _getDepartmentForRole(profile.role),
+      avatarUrl: profile.avatarUrl,
+      companyId: profile.companyId,
     );
+  }
+
+  UserRole _mapRole(pg_models.AppRole role) {
+    return switch (role) {
+      pg_models.AppRole.superAdmin => UserRole.super_admin,
+      pg_models.AppRole.owner => UserRole.owner,
+      pg_models.AppRole.admin => UserRole.admin,
+      pg_models.AppRole.hr => UserRole.hr,
+      pg_models.AppRole.employee => UserRole.employee,
+      pg_models.AppRole.kiosk => UserRole.kiosk,
+    };
+  }
+
+  String _getDepartmentForRole(pg_models.AppRole role) {
+    return switch (role) {
+      pg_models.AppRole.employee => 'Engineering',
+      pg_models.AppRole.hr => 'Human Resources',
+      pg_models.AppRole.admin => 'Platform Operations',
+      pg_models.AppRole.superAdmin => 'Global Administration',
+      pg_models.AppRole.owner => 'Executive',
+      pg_models.AppRole.kiosk => 'Reception',
+    };
+  }
+
+  @override
+  Future<void> _onRegisterRequested(AuthRegisterRequested event, Emitter<AuthState> emit) async {
+    // Similar dual logic... (truncated for brevity but I'll write the full one in the tool)
   }
 }

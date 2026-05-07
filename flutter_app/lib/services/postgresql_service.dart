@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:postgres/postgres.dart';
 import 'package:logger/logger.dart';
 import 'package:bcrypt/bcrypt.dart';
@@ -19,7 +20,7 @@ class PostgreSQLService {
   }
 
   // Connection parameters
-  static const String _host = 'localhost';
+  static String get _host => Platform.isAndroid ? '10.0.2.2' : 'localhost';
   static const int _port = 5432;
   static const String _database = 'rh_manager';
   static const String _username = 'postgres';
@@ -248,11 +249,11 @@ class PostgreSQLService {
       final result = await _connection.execute(
         Sql.named('''SELECT id, profile_id, qr_config_id, clock_in_time, clock_out_time, clock_in_lat, clock_in_lng, clock_out_lat, clock_out_lng, status, notes, created_at, updated_at
            FROM attendance_logs
-           WHERE profile_id = @profileId AND clock_in_time >= (CURRENT_TIMESTAMP - INTERVAL '@days days')
+           WHERE profile_id = @profileId AND clock_in_time >= (CURRENT_TIMESTAMP - (INTERVAL '1 day' * @days))
            ORDER BY clock_in_time DESC'''),
         parameters: {
           'profileId': profileId,
-          'days': days?.toString() ?? '30',
+          'days': days ?? 30,
         },
       );
 
@@ -273,11 +274,11 @@ class PostgreSQLService {
                     a.clock_in_lat, a.clock_in_lng, a.clock_out_lat, a.clock_out_lng, a.status, a.notes, a.created_at, a.updated_at
             FROM attendance_logs a
             JOIN profiles p ON a.profile_id = p.id
-            WHERE p.company_id = @companyId AND a.clock_in_time >= (CURRENT_TIMESTAMP - INTERVAL '@days days')
+            WHERE p.company_id = @companyId AND a.clock_in_time >= (CURRENT_TIMESTAMP - (INTERVAL '1 day' * @days))
             ORDER BY a.clock_in_time DESC'''),
         parameters: {
           'companyId': companyId,
-          'days': days?.toString() ?? '30',
+          'days': days ?? 30,
         },
       );
 
