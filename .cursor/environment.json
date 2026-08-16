@@ -1,0 +1,9 @@
+{
+  "name": "RH_Manager (Flutter + PostgreSQL/Supabase)",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "install": "cd flutter_app && flutter pub get",
+  "start": "bash .cursor/start.sh",
+  "ports": [5432]
+}
