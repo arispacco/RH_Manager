@@ -1,10 +1,15 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:attendance_os_mobile/app/app.dart';
 import 'package:attendance_os_mobile/app/di.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   setUpAll(() async {
+    // Provide an in-memory SharedPreferences so plugin channels are not hit.
+    SharedPreferences.setMockInitialValues({});
     // Initialize DI before tests
     await initDependencies();
   });
