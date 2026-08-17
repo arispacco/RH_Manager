@@ -403,7 +403,9 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
 
 [functions.create_user]
-enabled = true
+# Disabled for local development: the edge function source
+# (supabase/functions/create_user/) is not present in the repository.
+enabled = false
 verify_jwt = true
 import_map = "./functions/create_user/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
