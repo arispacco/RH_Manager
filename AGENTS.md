@@ -20,10 +20,11 @@ See `README.md` and `DOCS/` (`SETUP.md`, `DEVELOPMENT.md`, `BACKEND.md`) for pro
 - `.cursor/start.sh` provisions `rh_manager` on `localhost:5432` with user/password `postgres`/`postgres` (the values hard-coded in `lib/services/postgresql_service.dart`; note the app uses host `10.0.2.2` when running on the Android emulator).
 - Schema/seed come from `supabase/migrations/local_postgres.sql` and `supabase/seed_local.sql`. Local seed logins use short passwords, e.g. `admin@acme.com` / `admin123` (BCrypt-hashed via pgcrypto). The `DOCS/SETUP.md` table refers to the Supabase `seed.sql` instead.
 
-### Online Supabase mode
-- Set `BackendMode.supabase` and provide the project URL + anon key (in `config.dart`, or supply them as Cursor **Secrets** and wire them in). The Supabase CLI is available for migrations/type generation.
-- `supabase start` (full local stack) needs Docker, which is NOT installed in this image; use the local PostgreSQL path above for offline development.
+### Supabase mode (schema + backend)
+- The Supabase schema is `supabase/migrations/20260505000000_app_aligned_schema.sql`, kept in sync with the Dart models (`profiles` extend `auth.users`; enums `clocked_in/clocked_out/on_break`, etc.). The earlier migrations were removed because they no longer matched the app. `supabase/seed.sql` seeds companies + QR configs; `supabase/seed_users.sh` creates the auth test users (a trigger auto-creates their `profiles`).
+- `config.dart` reads `SUPABASE_URL` / `SUPABASE_ANON_KEY` at build time via `--dart-define` (defaults target the local stack). For the Android emulator use `--dart-define=SUPABASE_URL=http://10.0.2.2:54331`. For a real project, pass its URL + anon key (e.g. from Cursor **Secrets**).
 
-### Known pre-existing issues (unmerged WIP branch — not environment problems)
-- `flutter analyze` reports 2 compile errors in `lib/services/supabase_service.dart` (Supabase mode only): `asin` is called as a method on `double` (should be `dart:math`'s `math.asin(...)`), and `RealtimeChannel.onPostgresChange` should be `onPostgresChanges(..., callback: ...)`. These block a clean `flutter build apk` until fixed.
-- `flutter test` (`test/widget_test.dart`) fails in `setUpAll`: `initDependencies()` calls `SharedPreferences.getInstance()` without `TestWidgetsFlutterBinding.ensureInitialized()` + `SharedPreferences.setMockInitialValues({})`, causing `MissingPluginException`.
+#### Running the local Supabase stack (`supabase start`)
+- Requires Docker, which is NOT in the base image. Enable it once per session (see the Docker-in-Docker recipe: install `docker-ce` + `fuse-overlayfs` + `iptables`, set `/etc/docker/daemon.json` to `storage-driver: fuse-overlayfs` and `features.containerd-snapshotter: false` for Docker 29, switch to `iptables-legacy`, then run `sudo dockerd &` and `sudo chmod 666 /var/run/docker.sock`).
+- Then from the repo root: `supabase start` → apply schema+seed; `./supabase/seed_users.sh` → create test users. Get URL/keys with `supabase status -o json`. Local API is `http://127.0.0.1:54331` (ports come from `supabase/config.toml`). Test logins: `admin@acme.com`/`admin123`, `hr@acme.com`/`hr123`, `john.doe@acme.com`/`john123`.
+- The default `BackendMode.local` (plain PostgreSQL via `.cursor/start.sh`) needs no Docker and is the zero-config path; use the Supabase stack only when working on Supabase mode.
