@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:logger/logger.dart';
 import '../models/models.dart';
@@ -218,11 +220,13 @@ class SupabaseService {
   // Geofencing helper
   double calculateDistance(double lat1, double lng1, double lat2, double lng2) {
     const double p = 0.017453292519943295; // Math.PI / 180
-    const double c = 0.017453292519943295; // Math.PI / 180
     final double a = 0.5 -
-        c * (lat2 - lat1) / 2 +
-        0.5 * (1 + c * lng1 - c * lng2) * (lng2 - lng1) / 2;
-    return 12742 * (2 * 3.141592653589793 * a.asin()); // 2 * R; R = 6371 km
+        math.cos((lat2 - lat1) * p) / 2 +
+        math.cos(lat1 * p) *
+            math.cos(lat2 * p) *
+            (1 - math.cos((lng2 - lng1) * p)) /
+            2;
+    return 12742 * (2 * math.asin(math.sqrt(a))); // 2 * R; R = 6371 km
   }
 
   bool isWithinGeofence({
@@ -241,7 +245,7 @@ class SupabaseService {
   RealtimeChannel subscribeToAttendance(String profileId) {
     return _client
         .channel('attendance:$profileId')
-        .onPostgresChange(
+        .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'attendance_logs',
@@ -250,6 +254,7 @@ class SupabaseService {
             column: 'profile_id',
             value: profileId,
           ),
+          callback: (payload) {},
         )
         .subscribe();
   }
