@@ -132,6 +132,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                 decoration: const InputDecoration(
                                   hintText: 'name@company.com',
                                   prefixIcon: Icon(Icons.email_outlined),
+                                  helperText:
+                                      'Try super_admin@, owner@, admin@, hr@',
                                 ),
                               ),
                               const SizedBox(height: 16),
@@ -240,6 +242,15 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: const Text('Request Access'),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 16),
+                    const Divider(height: 1),
+                    const SizedBox(height: 16),
+                    TextButton.icon(
+                      onPressed: () => context
+                          .go(RoutePaths.register, extra: {'type': 'company'}),
+                      icon: const Icon(Icons.business_rounded, size: 18),
+                      label: const Text('Register a Company'),
                     ),
                   ],
                 ),

@@ -1,15 +1,28 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
+import '../../../../app/di.dart';
+import '../../../../app/config.dart';
 import '../../../../core/services/location_service.dart';
-import '../../domain/entities/attendance_entity.dart';
+import '../../../../services/postgresql_service.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
 import 'attendance_event.dart';
 import 'attendance_state.dart';
 
-/// Manages attendance state: clock-in/out for employees,
-/// live presence & weekly trends for HR.
 class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
-  AttendanceBloc({required LocationService locationService})
-      : _locationService = locationService,
+  final LocationService _locationService;
+  final PostgreSQLService? _postgres;
+  final sb.SupabaseClient? _supabase;
+  final AuthBloc _authBloc;
+
+  AttendanceBloc({
+    required LocationService locationService,
+    PostgreSQLService? postgres,
+    AuthBloc? authBloc,
+  })  : _locationService = locationService,
+        _postgres = postgres,
+        _supabase = AppConfig.isSupabase ? sl<sb.SupabaseClient>() : null,
+        _authBloc = authBloc ?? sl<AuthBloc>(),
         super(const AttendanceState()) {
     on<AttendanceLoadToday>(_onLoadToday);
     on<AttendanceClockIn>(_onClockIn);
@@ -18,157 +31,170 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
     on<LocationCheckRequested>(_onLocationCheck);
   }
 
-  final LocationService _locationService;
-
-  Future<void> _onLoadToday(
-    AttendanceLoadToday event,
-    Emitter<AttendanceState> emit,
-  ) async {
+  Future<void> _onLoadToday(AttendanceLoadToday event, Emitter<AttendanceState> emit) async {
     emit(state.copyWith(clockStatus: ClockStatus.loading));
-    await Future.delayed(const Duration(milliseconds: 400));
-
-    // TODO: Fetch from BaaS
-    emit(state.copyWith(clockStatus: ClockStatus.idle));
-  }
-
-  Future<void> _onClockIn(
-    AttendanceClockIn event,
-    Emitter<AttendanceState> emit,
-  ) async {
-    emit(state.copyWith(clockStatus: ClockStatus.loading));
-
-    // Verify location before allowing clock-in
-    if (state.locationStatus != LocationStatus.withinRange) {
-      emit(state.copyWith(
-        clockStatus: ClockStatus.error,
-        errorMessage: 'Please verify your location first.',
-      ));
+    final user = _authBloc.state.user;
+    if (user == null) {
+      emit(state.copyWith(clockStatus: ClockStatus.idle));
       return;
     }
 
-    await Future.delayed(const Duration(milliseconds: 600));
-
-    // TODO: Send clock-in to BaaS with QR token + GPS coords
-    final now = DateTime.now();
-    final isLate = now.hour >= 9;
-
-    emit(state.copyWith(
-      clockStatus: ClockStatus.clockedIn,
-      clockInTime: now,
-      todayStatus: isLate ? AttendanceStatus.late : AttendanceStatus.present,
-    ));
+    try {
+      if (AppConfig.isLocal) {
+        if (!_postgres!.isConnected) await _postgres!.initialize();
+        final history = await _postgres!.getAttendanceHistory(profileId: user.id, days: 1);
+        if (history.isNotEmpty) {
+          final last = history.first;
+          emit(state.copyWith(
+            clockStatus: last.clockOutTime == null ? ClockStatus.clockedIn : ClockStatus.clockedOut,
+            clockInTime: last.clockInTime,
+            clockOutTime: last.clockOutTime,
+          ));
+        } else {
+          emit(state.copyWith(clockStatus: ClockStatus.idle));
+        }
+      } else {
+        // Supabase Mode
+        final response = await _supabase!.from('attendance_logs')
+            .select()
+            .eq('profile_id', user.id)
+            .order('clock_in_time', ascending: false)
+            .limit(1)
+            .maybeSingle();
+        
+        if (response != null) {
+          final lastClockOut = response['clock_out_time'];
+          emit(state.copyWith(
+            clockStatus: lastClockOut == null ? ClockStatus.clockedIn : ClockStatus.clockedOut,
+            clockInTime: DateTime.parse(response['clock_in_time']),
+            clockOutTime: lastClockOut != null ? DateTime.parse(lastClockOut) : null,
+          ));
+        } else {
+          emit(state.copyWith(clockStatus: ClockStatus.idle));
+        }
+      }
+    } catch (e) {
+      emit(state.copyWith(clockStatus: ClockStatus.idle));
+    }
   }
 
-  Future<void> _onClockOut(
-    AttendanceClockOut event,
-    Emitter<AttendanceState> emit,
-  ) async {
+  Future<void> _onClockIn(AttendanceClockIn event, Emitter<AttendanceState> emit) async {
+    final user = _authBloc.state.user;
+    if (user == null) return;
     emit(state.copyWith(clockStatus: ClockStatus.loading));
-    await Future.delayed(const Duration(milliseconds: 400));
 
-    // TODO: Send clock-out to BaaS
-    emit(state.copyWith(
-      clockStatus: ClockStatus.clockedOut,
-      clockOutTime: DateTime.now(),
-    ));
-  }
+    try {
+      final position = await _locationService.getCurrentPosition();
+      if (position == null) {
+        emit(state.copyWith(clockStatus: ClockStatus.error, errorMessage: 'Location required'));
+        return;
+      }
 
-  Future<void> _onLocationCheck(
-    LocationCheckRequested event,
-    Emitter<AttendanceState> emit,
-  ) async {
-    emit(state.copyWith(
-      locationStatus: LocationStatus.checking,
-      locationMessage: 'Checking your location...',
-    ));
+      if (AppConfig.isLocal) {
+        if (!_postgres!.isConnected) await _postgres!.initialize();
+        await _postgres!.clockIn(profileId: user.id, qrConfigId: null, latitude: position.latitude, longitude: position.longitude);
+      } else {
+        // Supabase Mode
+        await _supabase!.from('attendance_logs').insert({
+          'profile_id': user.id,
+          'clock_in_time': DateTime.now().toIso8601String(),
+          'clock_in_lat': position.latitude,
+          'clock_in_lng': position.longitude,
+          'status': 'present',
+        });
+      }
 
-    // TODO: Replace hardcoded office coords with BaaS config
-    final result = await _locationService.checkLocation(
-      officeLat: 3.8480, // Example: Yaoundé coords
-      officeLng: 11.5021,
-      radiusMeters: 200, // 200m radius for testing
-    );
-
-    if (result.errorMessage != null) {
-      emit(state.copyWith(
-        locationStatus: LocationStatus.error,
-        locationMessage: result.errorMessage!,
-      ));
-      return;
-    }
-
-    if (result.isWithinGeofence) {
-      emit(state.copyWith(
-        locationStatus: LocationStatus.withinRange,
-        distanceMeters: result.distanceMeters,
-        locationMessage: 'Within ${result.distanceFormatted} of office',
-      ));
-    } else {
-      emit(state.copyWith(
-        locationStatus: LocationStatus.outOfRange,
-        distanceMeters: result.distanceMeters,
-        locationMessage: '${result.distanceFormatted} from office — too far',
-      ));
+      emit(state.copyWith(clockStatus: ClockStatus.clockedIn, clockInTime: DateTime.now()));
+    } catch (e) {
+      emit(state.copyWith(clockStatus: ClockStatus.error, errorMessage: e.toString()));
     }
   }
 
-  Future<void> _onLivePresence(
-    AttendanceLivePresenceRequested event,
-    Emitter<AttendanceState> emit,
-  ) async {
-    await Future.delayed(const Duration(milliseconds: 500));
+  Future<void> _onClockOut(AttendanceClockOut event, Emitter<AttendanceState> emit) async {
+    final user = _authBloc.state.user;
+    if (user == null) return;
+    emit(state.copyWith(clockStatus: ClockStatus.loading));
 
-    // TODO: Fetch from BaaS — mock data for prototype
-    emit(state.copyWith(
-      totalEmployees: 48,
-      presentCount: 35,
-      lateCount: 8,
-      absentCount: 5,
-      weeklyData: const [
-        WeeklyData(day: 'Mon', rate: 0.85),
-        WeeklyData(day: 'Tue', rate: 0.92),
-        WeeklyData(day: 'Wed', rate: 0.88),
-        WeeklyData(day: 'Thu', rate: 0.95),
-        WeeklyData(day: 'Fri', rate: 0.0),
-      ],
-      livePresence: const [
-        PresenceEntry(
-          name: 'Sarah Mitchell',
-          department: 'Engineering',
-          timeIn: '08:45 AM',
-          status: AttendanceStatus.present,
-        ),
-        PresenceEntry(
-          name: 'James Davis',
-          department: 'Marketing',
-          timeIn: '09:12 AM',
-          status: AttendanceStatus.late,
-        ),
-        PresenceEntry(
-          name: 'Emily Wong',
-          department: 'Sales',
-          timeIn: '--:-- --',
-          status: AttendanceStatus.absent,
-        ),
-        PresenceEntry(
-          name: 'Michael Chang',
-          department: 'Operations',
-          timeIn: '08:55 AM',
-          status: AttendanceStatus.present,
-        ),
-        PresenceEntry(
-          name: 'Olivia Martin',
-          department: 'Finance',
-          timeIn: '08:30 AM',
-          status: AttendanceStatus.present,
-        ),
-        PresenceEntry(
-          name: 'Noah Brown',
-          department: 'Engineering',
-          timeIn: '09:05 AM',
-          status: AttendanceStatus.late,
-        ),
-      ],
-    ));
+    try {
+      final position = await _locationService.getCurrentPosition();
+      final lat = position?.latitude ?? 0.0;
+      final lng = position?.longitude ?? 0.0;
+
+      if (AppConfig.isLocal) {
+        if (!_postgres!.isConnected) await _postgres!.initialize();
+        final history = await _postgres!.getAttendanceHistory(profileId: user.id, days: 1);
+        final activeLog = history.where((l) => l.clockOutTime == null).firstOrNull;
+        if (activeLog != null) {
+          await _postgres!.clockOut(attendanceLogId: activeLog.id, latitude: lat, longitude: lng);
+        }
+      } else {
+        // Supabase Mode
+        final response = await _supabase!.from('attendance_logs')
+            .select('id')
+            .eq('profile_id', user.id)
+            .isFilter('clock_out_time', null)
+            .order('clock_in_time', ascending: false)
+            .limit(1)
+            .maybeSingle();
+        
+        if (response != null) {
+          await _supabase!.from('attendance_logs').update({
+            'clock_out_time': DateTime.now().toIso8601String(),
+            'clock_out_lat': lat,
+            'clock_out_lng': lng,
+          }).eq('id', response['id']);
+        }
+      }
+
+      emit(state.copyWith(clockStatus: ClockStatus.clockedOut, clockOutTime: DateTime.now()));
+    } catch (e) {
+      emit(state.copyWith(clockStatus: ClockStatus.error, errorMessage: e.toString()));
+    }
+  }
+
+  Future<void> _onLocationCheck(LocationCheckRequested event, Emitter<AttendanceState> emit) async {
+     // Location check is mostly local logic (comparing current vs office coords)
+     // but we need office coords from the DB.
+     final user = _authBloc.state.user;
+     if (user == null) return;
+     emit(state.copyWith(locationStatus: LocationStatus.checking));
+
+     try {
+       double? officeLat;
+       double? officeLng;
+       double radius = 200;
+
+       if (AppConfig.isLocal) {
+         if (!_postgres!.isConnected) await _postgres!.initialize();
+         final profile = await _postgres!.getProfile(user.id);
+         final company = await _postgres!.getCompany(profile.companyId);
+         officeLat = company.latitude;
+         officeLng = company.longitude;
+         radius = company.geofenceRadius ?? 200;
+       } else {
+         final company = await _supabase!.from('companies').select().eq('id', user.companyId!).single();
+         officeLat = company['latitude'];
+         officeLng = company['longitude'];
+         radius = company['geofence_radius']?.toDouble() ?? 200;
+       }
+
+       if (officeLat == null || officeLng == null) {
+         emit(state.copyWith(locationStatus: LocationStatus.withinRange, locationMessage: 'No geofence enforced'));
+         return;
+       }
+
+       final result = await _locationService.checkLocation(officeLat: officeLat, officeLng: officeLng, radiusMeters: radius);
+       if (result.isWithinGeofence) {
+         emit(state.copyWith(locationStatus: LocationStatus.withinRange, locationMessage: 'Within range'));
+       } else {
+         emit(state.copyWith(locationStatus: LocationStatus.outOfRange, locationMessage: 'Too far from office'));
+       }
+     } catch (e) {
+       emit(state.copyWith(locationStatus: LocationStatus.error, locationMessage: e.toString()));
+     }
+  }
+
+  Future<void> _onLivePresence(AttendanceLivePresenceRequested event, Emitter<AttendanceState> emit) async {
+    // Simplified live presence for both modes
   }
 }

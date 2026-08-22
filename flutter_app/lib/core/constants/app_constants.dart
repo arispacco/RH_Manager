@@ -6,8 +6,20 @@ class AppConstants {
   static const String appName = 'AttendanceOS';
   static const String appVersion = '1.0.0';
 
-  // API — Update this when the BaaS URL is available
-  static const String baseUrl = 'https://api.attendanceos.com';
+  // Supabase Configuration
+  // Local Supabase via Docker Compose on port 54332
+  // For Android emulator: use 10.0.2.2 (host machine) instead of localhost
+  // For physical device: use actual machine IP or cloud URL
+  static const String supabaseUrl = String.fromEnvironment(
+    'SUPABASE_URL',
+    defaultValue: 'http://127.0.0.1:8000',
+  );
+  static const String supabaseAnonKey = String.fromEnvironment(
+    'SUPABASE_ANON_KEY',
+    defaultValue:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlc3QiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTYyMzAzMDMzMywiZXhwIjoyMDAwMDAwMDAwfQ.your_test_key',
+  );
+
   static const int connectTimeout = 15000; // ms
   static const int receiveTimeout = 15000; // ms
 

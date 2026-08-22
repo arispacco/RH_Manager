@@ -100,9 +100,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
             return Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
                       stat.label,
@@ -120,6 +123,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       ),
                     ),
                   ],
+                ),
                 ),
               ),
             );

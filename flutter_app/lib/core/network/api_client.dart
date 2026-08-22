@@ -12,7 +12,7 @@ class ApiClient {
   }) : _secureStorage = secureStorage {
     _dio = Dio(
       BaseOptions(
-        baseUrl: AppConstants.baseUrl,
+        baseUrl: AppConstants.supabaseUrl,
         connectTimeout: const Duration(milliseconds: AppConstants.connectTimeout),
         receiveTimeout: const Duration(milliseconds: AppConstants.receiveTimeout),
         headers: {

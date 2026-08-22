@@ -103,4 +103,97 @@ class AppTheme {
       ),
     );
   }
+
+  static ThemeData dark() {
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: secondaryContainer,
+      brightness: Brightness.dark,
+    ).copyWith(
+      primary: secondaryContainer,
+      onPrimary: primary,
+      primaryContainer: secondary,
+      onPrimaryContainer: Colors.white,
+      secondary: secondary,
+      onSecondary: Colors.white,
+      secondaryContainer: const Color(0xFF0D1E36),
+      onSecondaryContainer: Colors.white,
+      surface: const Color(0xFF091426),
+      onSurface: Colors.white,
+      onSurfaceVariant: const Color(0xFF9497A1),
+      outlineVariant: const Color(0xFF2C3241),
+    );
+
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: colorScheme,
+      scaffoldBackgroundColor: const Color(0xFF091426),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Color(0xFF091426),
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
+      cardTheme: const CardThemeData(
+        color: Color(0xFF131F32),
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(24)),
+          side: BorderSide(color: Color(0xFF2C3241)),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: const Color(0xFF131F32),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Color(0xFF2C3241)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Color(0xFF2C3241)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: secondaryContainer, width: 1.2),
+        ),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      ),
+      navigationBarTheme: const NavigationBarThemeData(
+        backgroundColor: Color(0xFF131F32),
+        indicatorColor: Color(0x226CF8BB),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: secondaryContainer,
+          foregroundColor: primary,
+          minimumSize: const Size.fromHeight(52),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.3,
+          ),
+        ),
+      ),
+      textTheme: const TextTheme(
+        headlineMedium: TextStyle(
+          fontSize: 30,
+          fontWeight: FontWeight.w800,
+          color: Colors.white,
+        ),
+        titleLarge: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          color: Colors.white,
+        ),
+        bodyMedium: TextStyle(
+          color: Color(0xFF9497A1),
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
 }
