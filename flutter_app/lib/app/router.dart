@@ -12,6 +12,7 @@ import '../../features/dashboard/presentation/screens/admin_dashboard.dart';
 import '../../features/dashboard/presentation/screens/employee_dashboard.dart';
 import '../../features/dashboard/presentation/screens/home_shell.dart';
 import '../../features/dashboard/presentation/screens/hr_dashboard.dart';
+import '../../features/dashboard/presentation/screens/kiosk_dashboard.dart';
 import '../../features/employees/presentation/screens/employee_directory_screen.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
 
@@ -30,6 +31,7 @@ class RoutePaths {
   static const String company = 'company';
   static const String settings = 'settings';
   static const String scanner = '/scanner';
+  static const String kiosk = '/kiosk';
 }
 
 /// Creates the [GoRouter] instance for the entire app.
@@ -41,11 +43,26 @@ GoRouter createRouter(AuthBloc authBloc) {
     redirect: (context, state) {
       final authState = authBloc.state;
       final isAuthenticated = authState.status == AuthStatus.authenticated;
+      final user = authState.user;
       final isAuthRoute = state.matchedLocation == RoutePaths.login ||
           state.matchedLocation == RoutePaths.register;
 
       if (!isAuthenticated && !isAuthRoute) return RoutePaths.login;
-      if (isAuthenticated && isAuthRoute) return '/${RoutePaths.dashboard}';
+
+      if (isAuthenticated && isAuthRoute) {
+        if (user?.role == UserRole.kiosk) {
+          return RoutePaths.kiosk;
+        }
+        return '/${RoutePaths.dashboard}';
+      }
+
+      // Block non-kiosk routes for kiosk users
+      if (isAuthenticated &&
+          user?.role == UserRole.kiosk &&
+          state.matchedLocation != RoutePaths.kiosk) {
+        return RoutePaths.kiosk;
+      }
+
       return null;
     },
     routes: [
@@ -56,7 +73,16 @@ GoRouter createRouter(AuthBloc authBloc) {
       ),
       GoRoute(
         path: RoutePaths.register,
-        builder: (context, state) => const RegisterScreen(),
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return RegisterScreen(initialType: extra?['type'] as String?);
+        },
+      ),
+
+      // ── Kiosk Route (outside shell) ──
+      GoRoute(
+        path: RoutePaths.kiosk,
+        builder: (context, state) => const KioskDashboard(),
       ),
 
       // ── Scanner (full-screen, outside shell) ──
@@ -156,9 +182,14 @@ GoRouter createRouter(AuthBloc authBloc) {
 Widget _buildDashboardForRole(UserEntity? user) {
   if (user == null) return const SizedBox.shrink();
   return switch (user.role) {
-    UserRole.admin => const AdminDashboard(),
+    UserRole.admin ||
+    UserRole.super_admin ||
+    UserRole.owner =>
+      const AdminDashboard(),
     UserRole.hr => const HRDashboard(),
     UserRole.employee => const EmployeeDashboard(),
+    UserRole.kiosk => const SizedBox
+        .shrink(), // Kiosk is not in the shell, this won't be reached
   };
 }
 

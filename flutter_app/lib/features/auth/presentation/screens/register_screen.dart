@@ -5,7 +5,9 @@ import '../../../../app/router.dart';
 import '../../domain/entities/user_entity.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  const RegisterScreen({super.key, this.initialType});
+
+  final String? initialType;
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -16,13 +18,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  UserRole _selectedType = UserRole.hr;
+  final _companyController = TextEditingController();
+  UserRole _selectedType = UserRole.owner;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialType == 'company') {
+      _selectedType = UserRole.owner;
+    } else {
+      _selectedType = UserRole.employee;
+    }
+  }
 
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _companyController.dispose();
     super.dispose();
   }
 
@@ -31,16 +45,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
+    String message = 'Request sent. You can sign in once approved.';
+    if (_selectedType == UserRole.owner) {
+      message = 'Company registered successfully. You can now sign in.';
+    } else if (_selectedType == UserRole.hr) {
+      message = 'Request sent. HR/Admin accounts require approval.';
+    }
+
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          _selectedType == UserRole.hr
-              ? 'Request sent. HR/Admin accounts require approval.'
-              : 'Request sent. You can sign in once approved.',
-        ),
-      ),
+      SnackBar(content: Text(message)),
     );
-    context.go('/${RoutePaths.login}');
+    context.go(RoutePaths.login);
   }
 
   @override
@@ -57,14 +72,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Create an Account',
+                    _selectedType == UserRole.owner
+                        ? 'Register Company'
+                        : 'Create an Account',
                     style: theme.textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.w900,
                     ),
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Enter your details to request access.',
+                    _selectedType == UserRole.owner
+                        ? 'Create a new organization workspace.'
+                        : 'Enter your details to request access.',
                     style: theme.textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 20),
@@ -105,9 +124,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                     });
                                   },
                                 ),
+                                ChoiceChip(
+                                  label: const Text('Company'),
+                                  selected: _selectedType == UserRole.owner,
+                                  onSelected: (_) {
+                                    setState(() {
+                                      _selectedType = UserRole.owner;
+                                    });
+                                  },
+                                ),
                               ],
                             ),
-                            if (_selectedType == UserRole.hr) ...[
+                            if (_selectedType == UserRole.hr ||
+                                _selectedType == UserRole.owner) ...[
                               const SizedBox(height: 14),
                               Container(
                                 padding: const EdgeInsets.all(14),
@@ -127,7 +156,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
-                                        'Approval required before activation for HR/Admin accounts.',
+                                        _selectedType == UserRole.hr
+                                            ? 'Approval required before activation for HR/Admin accounts.'
+                                            : 'Registering a company creates a new organization and assigns you the Owner role.',
                                         style:
                                             theme.textTheme.bodySmall?.copyWith(
                                           color: theme.colorScheme.primary,
@@ -139,6 +170,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                             ],
                             const SizedBox(height: 18),
+                            if (_selectedType == UserRole.owner) ...[
+                              TextFormField(
+                                controller: _companyController,
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Company name is required.';
+                                  }
+                                  return null;
+                                },
+                                decoration: const InputDecoration(
+                                  labelText: 'Company Name',
+                                  hintText: 'e.g. Acme Corp',
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
                             TextFormField(
                               controller: _nameController,
                               validator: (value) {
@@ -188,12 +235,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             const SizedBox(height: 18),
                             FilledButton(
                               onPressed: _submit,
-                              child: const Row(
+                              child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Text('REQUEST ACCOUNT'),
-                                  SizedBox(width: 8),
-                                  Icon(Icons.arrow_forward_rounded, size: 18),
+                                  Text(_selectedType == UserRole.owner
+                                      ? 'REGISTER COMPANY'
+                                      : 'REQUEST ACCOUNT'),
+                                  const SizedBox(width: 8),
+                                  const Icon(Icons.arrow_forward_rounded,
+                                      size: 18),
                                 ],
                               ),
                             ),
@@ -209,7 +259,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     children: [
                       const Text('Already have an account?'),
                       TextButton(
-                        onPressed: () => context.go('/${RoutePaths.login}'),
+                        onPressed: () => context.go(RoutePaths.login),
                         child: const Text('Log in'),
                       ),
                     ],
