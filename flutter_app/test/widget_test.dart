@@ -1,11 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:attendance_os_mobile/app/app.dart';
 import 'package:attendance_os_mobile/app/di.dart';
 
 void main() {
   setUpAll(() async {
-    // Initialize DI before tests
+    // Provide an in-memory implementation: no plugin is available on the
+    // Dart test VM.
+    SharedPreferences.setMockInitialValues({});
     await initDependencies();
   });
 
