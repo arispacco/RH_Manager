@@ -210,6 +210,25 @@ class PostgreSQLService {
     }
   }
 
+  /// Kiosk credentials for the company station: signing secret and QR
+  /// rotation interval. Columns are created by supabase/seed_local.sql.
+  Future<({String qrSecret, int rotationSeconds})>
+      getKioskConfigForCompany(String companyId) async {
+    final result = await _connection.execute(
+      Sql.named(
+          'SELECT qr_secret, rotation_seconds FROM qr_configs WHERE company_id = @id AND active = true LIMIT 1'),
+      parameters: {'id': companyId},
+    );
+    if (result.isEmpty) {
+      throw Exception('No active QR config for company $companyId');
+    }
+    final row = result.first.toColumnMap();
+    return (
+      qrSecret: row['qr_secret'].toString(),
+      rotationSeconds: row['rotation_seconds'] as int? ?? 15,
+    );
+  }
+
   // Attendance
   Future<AttendanceLog> clockIn({
     required String profileId,

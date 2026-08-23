@@ -8,7 +8,10 @@ import 'package:crypto/crypto.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 
+import '../../../../app/config.dart';
+import '../../../../app/di.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../../../services/postgresql_service.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
 
@@ -22,9 +25,10 @@ class KioskDashboard extends StatefulWidget {
 }
 
 class _KioskDashboardState extends State<KioskDashboard> {
-  late Timer _timer;
+  Timer? _timer;
   late Timer _clockTimer;
   int _secondsRemaining = 15;
+  int _rotationSeconds = 15;
   String _currentQrData = '';
   String _currentTime = '';
   String? _companyId;
@@ -42,35 +46,75 @@ class _KioskDashboardState extends State<KioskDashboard> {
 
   Future<void> _fetchKioskConfig() async {
     try {
-      final supabase = Supabase.instance.client;
-      final user = supabase.auth.currentUser;
-      if (user == null) throw Exception('Kiosk not logged in');
-
-      final profile = await supabase.from('profiles').select('company_id').eq('id', user.id).single();
-      _companyId = profile['company_id'];
-
-      final config = await supabase.from('qr_configs').select('qr_secret, rotation_seconds').eq('company_id', _companyId as Object).single();
-      _qrSecret = config['qr_secret'];
-      
-      setState(() {
-        _isLoadingConfig = false;
-        _secondsRemaining = config['rotation_seconds'] ?? 15;
-      });
+      if (AppConfig.isLocal) {
+        await _fetchKioskConfigLocal();
+      } else {
+        await _fetchKioskConfigSupabase();
+      }
 
       _generateNewQr();
       _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
         if (_secondsRemaining > 1) {
-          setState(() {
-            _secondsRemaining--;
-          });
+          if (mounted) {
+            setState(() {
+              _secondsRemaining--;
+            });
+          }
         } else {
           _generateNewQr();
         }
       });
     } catch (e) {
        // Ignore error handling for prototype simplicity, but set loading false
-       setState(() { _isLoadingConfig = false; });
+       if (mounted) setState(() { _isLoadingConfig = false; });
     }
+  }
+
+  Future<void> _fetchKioskConfigLocal() async {
+    final postgres = sl<PostgreSQLService>();
+    if (!postgres.isConnected) await postgres.initialize();
+
+    final authUser = sl<AuthBloc>().state.user;
+    final String profileId;
+    if (authUser != null) {
+      profileId = authUser.id;
+    } else {
+      final rows = await postgres.connection.execute(
+        Sql.named('SELECT id FROM profiles ORDER BY created_at LIMIT 1'),
+      );
+      if (rows.isEmpty) throw Exception('No kiosk profile found');
+      profileId = rows.first.toColumnMap()['id'].toString();
+    }
+
+    final profile = await postgres.getProfile(profileId);
+    _companyId = profile.companyId;
+
+    final config = await postgres.getKioskConfigForCompany(_companyId!);
+    _qrSecret = config.qrSecret;
+    _rotationSeconds = config.rotationSeconds;
+
+    setState(() {
+      _isLoadingConfig = false;
+      _secondsRemaining = _rotationSeconds;
+    });
+  }
+
+  Future<void> _fetchKioskConfigSupabase() async {
+    final supabase = Supabase.instance.client;
+    final user = supabase.auth.currentUser;
+    if (user == null) throw Exception('Kiosk not logged in');
+
+    final profile = await supabase.from('profiles').select('company_id').eq('id', user.id).single();
+    _companyId = profile['company_id'];
+
+    final config = await supabase.from('qr_configs').select('qr_secret, rotation_seconds').eq('company_id', _companyId as Object).single();
+    _qrSecret = config['qr_secret'];
+    _rotationSeconds = (config['rotation_seconds'] as int?) ?? 15;
+    
+    setState(() {
+      _isLoadingConfig = false;
+      _secondsRemaining = _rotationSeconds;
+    });
   }
 
   void _updateClock() {
@@ -84,6 +128,7 @@ class _KioskDashboardState extends State<KioskDashboard> {
     
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final dataToSign = '$_companyId:$timestamp';
+    _secondsRemaining = _rotationSeconds;
     
     // Generate HMAC-SHA256 signature
     final hmac = Hmac(sha256, utf8.encode(_qrSecret!));
@@ -91,13 +136,12 @@ class _KioskDashboardState extends State<KioskDashboard> {
     
     setState(() {
       _currentQrData = '$dataToSign:$signature';
-      _secondsRemaining = 15; // Could be dynamic from config
     });
   }
 
   @override
   void dispose() {
-    _timer.cancel();
+    _timer?.cancel();
     _clockTimer.cancel();
     super.dispose();
   }
