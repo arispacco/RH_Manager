@@ -1,0 +1,59 @@
+# GitLab CI — AttendanceOS
+# Remplace les GitHub Actions (compte GitHub verrouillé côté facturation).
+#
+# Variables CI/CD à définir dans Settings > CI/CD > Variables :
+#   SUPABASE_URL       (protégée)   ex: https://xxxx.supabase.co
+#   SUPABASE_ANON_KEY  (protégée)   clé anon du projet Supabase
+
+stages:
+  - analyze
+  - build
+
+flutter-analyze:
+  stage: analyze
+  image: ghcr.io/cirruslabs/flutter:3.44.8
+  script:
+    - flutter pub get
+    - flutter analyze --no-fatal-infos
+    - flutter test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+
+build-apk-debug:
+  stage: build
+  image: ghcr.io/cirruslabs/flutter:3.44.8
+  script:
+    - cd flutter_app
+    - flutter pub get
+    - flutter build apk --debug
+      --dart-define=SUPABASE_URL=${SUPABASE_URL}
+      --dart-define=SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+  artifacts:
+    name: "AttendanceOS_debug_${CI_COMMIT_SHORT_SHA}"
+    paths:
+      - flutter_app/build/app/outputs/flutter-apk/app-debug.apk
+    expire_in: 7 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+      changes:
+        - flutter_app/**/*
+        - .gitlab-ci.yml
+
+build-apk-release:
+  stage: build
+  image: ghcr.io/cirruslabs/flutter:3.44.8
+  script:
+    - cd flutter_app
+    - flutter pub get
+    - flutter build apk --release
+      --dart-define=SUPABASE_URL=${SUPABASE_URL}
+      --dart-define=SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+  artifacts:
+    name: "AttendanceOS_release_${CI_COMMIT_SHORT_SHA}"
+    paths:
+      - flutter_app/build/app/outputs/flutter-apk/app-release.apk
+    expire_in: 30 days
+  rules:
+    # Release manuel uniquement : onglet Build > Pipelines > Run pipeline
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: manual
