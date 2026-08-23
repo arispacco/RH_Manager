@@ -3,6 +3,7 @@ import 'package:postgres/postgres.dart';
 import 'package:logger/logger.dart';
 import 'package:bcrypt/bcrypt.dart';
 import 'dart:math' as math;
+import '../app/config.dart';
 import '../models/models.dart';
 
 /// PostgreSQL service for local development
@@ -19,12 +20,13 @@ class PostgreSQLService {
     return _instance;
   }
 
-  // Connection parameters
-  static String get _host => Platform.isAndroid ? '10.0.2.2' : 'localhost';
-  static const int _port = 5432;
-  static const String _database = 'rh_manager';
-  static const String _username = 'postgres';
-  static const String _password = 'postgres';
+  // Connection parameters (resolved from AppConfig)
+  static String get _host =>
+      Platform.isAndroid ? AppConfig.androidEmulatorHost : AppConfig.localHost;
+  static int get _port => AppConfig.localPort;
+  static String get _database => AppConfig.localDatabase;
+  static String get _username => AppConfig.localUsername;
+  static String get _password => AppConfig.localPassword;
 
   bool get isConnected => _isConnected;
   Connection get connection => _connection;
