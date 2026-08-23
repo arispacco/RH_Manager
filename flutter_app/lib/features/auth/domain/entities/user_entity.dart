@@ -1,7 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 /// Roles a user can have in the application.
-enum UserRole { employee, hr, admin, super_admin, owner, kiosk }
+enum UserRole { employee, hr, admin, superAdmin, owner, kiosk }
 
 /// Domain entity representing an authenticated user.
 class UserEntity extends Equatable {
@@ -26,7 +26,7 @@ class UserEntity extends Equatable {
   /// Creates a mock user for prototype / offline mode.
   factory UserEntity.mock({required String email, required UserRole role}) {
     final name = switch (role) {
-      UserRole.super_admin => 'Super Admin',
+      UserRole.superAdmin => 'Super Admin',
       UserRole.owner => 'Company Owner',
       UserRole.admin => 'Alex Rivers',
       UserRole.hr => 'Sarah Jenkins',
@@ -53,7 +53,7 @@ extension UserRoleX on UserRole {
         UserRole.employee => 'Employee',
         UserRole.hr => 'HR Manager',
         UserRole.admin => 'Admin',
-        UserRole.super_admin => 'Super Admin',
+        UserRole.superAdmin => 'Super Admin',
         UserRole.owner => 'Owner',
         UserRole.kiosk => 'Kiosk',
       };
@@ -62,7 +62,7 @@ extension UserRoleX on UserRole {
         UserRole.employee => 'Engineering',
         UserRole.hr => 'Human Resources',
         UserRole.admin => 'Platform Operations',
-        UserRole.super_admin => 'Global Administration',
+        UserRole.superAdmin => 'Global Administration',
         UserRole.owner => 'Executive',
         UserRole.kiosk => 'Reception',
       };
@@ -71,7 +71,7 @@ extension UserRoleX on UserRole {
 /// Determine role from email (prototype fallback only).
 UserRole roleFromEmail(String email) {
   final normalized = email.toLowerCase();
-  if (normalized.contains('super_admin')) return UserRole.super_admin;
+  if (normalized.contains('super_admin')) return UserRole.superAdmin;
   if (normalized.contains('owner')) return UserRole.owner;
   if (normalized.contains('admin')) return UserRole.admin;
   if (normalized.contains('hr')) return UserRole.hr;

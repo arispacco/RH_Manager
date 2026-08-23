@@ -28,22 +28,38 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthLogoutRequested>(_onLogoutRequested);
   }
 
+  PostgreSQLService get _localPostgres {
+    final service = _postgres;
+    if (service == null) {
+      throw StateError('PostgreSQL backend unavailable in Supabase mode');
+    }
+    return service;
+  }
+
+  sb.SupabaseClient get _remoteSupabase {
+    final client = _supabase;
+    if (client == null) {
+      throw StateError('Supabase backend unavailable in local mode');
+    }
+    return client;
+  }
+
   Future<void> _onCheckRequested(AuthCheckRequested event, Emitter<AuthState> emit) async {
     final storedUserId = await _secureStorage.read(key: _sessionKey);
     if (storedUserId != null) {
       try {
         if (AppConfig.isLocal) {
-          if (!_postgres!.isConnected) await _postgres!.initialize();
-          final profile = await _postgres!.getProfile(storedUserId);
+          if (!_localPostgres.isConnected) await _localPostgres.initialize();
+          final profile = await _localPostgres.getProfile(storedUserId);
           emit(state.copyWith(status: AuthStatus.authenticated, user: _mapProfileToUserEntity(profile)));
         } else {
-          final session = _supabase!.auth.currentSession;
+          final session = _remoteSupabase.auth.currentSession;
           if (session != null) {
-             final response = await _supabase!.from('profiles').select().eq('id', storedUserId).single();
-             final profile = pg_models.Profile.fromJson(response);
-             emit(state.copyWith(status: AuthStatus.authenticated, user: _mapProfileToUserEntity(profile)));
+            final response = await _remoteSupabase.from('profiles').select().eq('id', storedUserId).single();
+            final profile = pg_models.Profile.fromJson(response);
+            emit(state.copyWith(status: AuthStatus.authenticated, user: _mapProfileToUserEntity(profile)));
           } else {
-             emit(state.copyWith(status: AuthStatus.unauthenticated));
+            emit(state.copyWith(status: AuthStatus.unauthenticated));
           }
         }
         return;
@@ -58,15 +74,15 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(state.copyWith(status: AuthStatus.loading));
     try {
       if (AppConfig.isLocal) {
-        if (!_postgres!.isConnected) await _postgres!.initialize();
-        final result = await _postgres!.signIn(event.email, event.password);
+        if (!_localPostgres.isConnected) await _localPostgres.initialize();
+        final result = await _localPostgres.signIn(event.email, event.password);
         await _secureStorage.write(key: _sessionKey, value: result.id);
         emit(state.copyWith(status: AuthStatus.authenticated, user: _mapProfileToUserEntity(result.profile)));
       } else {
-        final response = await _supabase!.auth.signInWithPassword(email: event.email, password: event.password);
+        final response = await _remoteSupabase.auth.signInWithPassword(email: event.email, password: event.password);
         if (response.user != null) {
           await _secureStorage.write(key: _sessionKey, value: response.user!.id);
-          final profileData = await _supabase!.from('profiles').select().eq('id', response.user!.id).single();
+          final profileData = await _remoteSupabase.from('profiles').select().eq('id', response.user!.id).single();
           final profile = pg_models.Profile.fromJson(profileData);
           emit(state.copyWith(status: AuthStatus.authenticated, user: _mapProfileToUserEntity(profile)));
         }
@@ -80,11 +96,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(state.copyWith(status: AuthStatus.loading));
     try {
       if (AppConfig.isLocal) {
-        if (!_postgres!.isConnected) await _postgres!.initialize();
-        await _postgres!.signUp(event.email, event.password);
+        if (!_localPostgres.isConnected) await _localPostgres.initialize();
+        await _localPostgres.signUp(event.email, event.password);
         emit(state.copyWith(status: AuthStatus.unauthenticated, errorMessage: null));
       } else {
-        await _supabase!.auth.signUp(email: event.email, password: event.password);
+        await _remoteSupabase.auth.signUp(email: event.email, password: event.password);
         emit(state.copyWith(status: AuthStatus.unauthenticated, errorMessage: null));
       }
     } catch (e) {
@@ -94,7 +110,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
   Future<void> _onLogoutRequested(AuthLogoutRequested event, Emitter<AuthState> emit) async {
     await _secureStorage.delete(key: _sessionKey);
-    if (AppConfig.isSupabase) await _supabase!.auth.signOut();
+    if (AppConfig.isSupabase) await _remoteSupabase.auth.signOut();
     emit(const AuthState(status: AuthStatus.unauthenticated));
   }
 
@@ -112,7 +128,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
   UserRole _mapRole(pg_models.AppRole role) {
     return switch (role) {
-      pg_models.AppRole.superAdmin => UserRole.super_admin,
+      pg_models.AppRole.superAdmin => UserRole.superAdmin,
       pg_models.AppRole.owner => UserRole.owner,
       pg_models.AppRole.admin => UserRole.admin,
       pg_models.AppRole.hr => UserRole.hr,

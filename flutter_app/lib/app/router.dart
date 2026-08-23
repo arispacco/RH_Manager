@@ -183,7 +183,7 @@ Widget _buildDashboardForRole(UserEntity? user) {
   if (user == null) return const SizedBox.shrink();
   return switch (user.role) {
     UserRole.admin ||
-    UserRole.super_admin ||
+    UserRole.superAdmin ||
     UserRole.owner =>
       const AdminDashboard(),
     UserRole.hr => const HRDashboard(),

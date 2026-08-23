@@ -42,7 +42,7 @@ class HomeShell extends StatelessWidget {
         UserRole.employee,
         UserRole.hr,
         UserRole.admin,
-        UserRole.super_admin,
+        UserRole.superAdmin,
         UserRole.owner
       },
     ),
@@ -53,7 +53,7 @@ class HomeShell extends StatelessWidget {
       roles: {
         UserRole.hr,
         UserRole.admin,
-        UserRole.super_admin,
+        UserRole.superAdmin,
         UserRole.owner
       },
     ),
@@ -70,7 +70,7 @@ class HomeShell extends StatelessWidget {
       roles: {
         UserRole.hr,
         UserRole.admin,
-        UserRole.super_admin,
+        UserRole.superAdmin,
         UserRole.owner
       },
     ),
@@ -78,7 +78,7 @@ class HomeShell extends StatelessWidget {
       path: '/${RoutePaths.analytics}',
       label: 'Analytics',
       icon: Icons.trending_up_rounded,
-      roles: {UserRole.admin, UserRole.super_admin, UserRole.owner},
+      roles: {UserRole.admin, UserRole.superAdmin, UserRole.owner},
     ),
     _NavItem(
       path: '/${RoutePaths.company}',
@@ -87,7 +87,7 @@ class HomeShell extends StatelessWidget {
       roles: {
         UserRole.hr,
         UserRole.admin,
-        UserRole.super_admin,
+        UserRole.superAdmin,
         UserRole.owner
       },
     ),
@@ -99,7 +99,7 @@ class HomeShell extends StatelessWidget {
         UserRole.employee,
         UserRole.hr,
         UserRole.admin,
-        UserRole.super_admin,
+        UserRole.superAdmin,
         UserRole.owner
       },
     ),

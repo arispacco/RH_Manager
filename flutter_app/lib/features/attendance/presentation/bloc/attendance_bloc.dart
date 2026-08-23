@@ -20,7 +20,9 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
     PostgreSQLService? postgres,
     AuthBloc? authBloc,
   })  : _locationService = locationService,
-        _postgres = postgres,
+        _postgres = AppConfig.isLocal
+            ? (postgres ?? sl<PostgreSQLService>())
+            : null,
         _supabase = AppConfig.isSupabase ? sl<sb.SupabaseClient>() : null,
         _authBloc = authBloc ?? sl<AuthBloc>(),
         super(const AttendanceState()) {
@@ -29,6 +31,22 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
     on<AttendanceClockOut>(_onClockOut);
     on<AttendanceLivePresenceRequested>(_onLivePresence);
     on<LocationCheckRequested>(_onLocationCheck);
+  }
+
+  PostgreSQLService get _localPostgres {
+    final service = _postgres;
+    if (service == null) {
+      throw StateError('PostgreSQL backend unavailable in Supabase mode');
+    }
+    return service;
+  }
+
+  sb.SupabaseClient get _remoteSupabase {
+    final client = _supabase;
+    if (client == null) {
+      throw StateError('Supabase backend unavailable in local mode');
+    }
+    return client;
   }
 
   Future<void> _onLoadToday(AttendanceLoadToday event, Emitter<AttendanceState> emit) async {
@@ -41,8 +59,8 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
 
     try {
       if (AppConfig.isLocal) {
-        if (!_postgres!.isConnected) await _postgres!.initialize();
-        final history = await _postgres!.getAttendanceHistory(profileId: user.id, days: 1);
+        if (!_localPostgres.isConnected) await _localPostgres.initialize();
+        final history = await _localPostgres.getAttendanceHistory(profileId: user.id, days: 1);
         if (history.isNotEmpty) {
           final last = history.first;
           emit(state.copyWith(
@@ -55,7 +73,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
         }
       } else {
         // Supabase Mode
-        final response = await _supabase!.from('attendance_logs')
+        final response = await _remoteSupabase.from('attendance_logs')
             .select()
             .eq('profile_id', user.id)
             .order('clock_in_time', ascending: false)
@@ -91,11 +109,11 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
       }
 
       if (AppConfig.isLocal) {
-        if (!_postgres!.isConnected) await _postgres!.initialize();
-        await _postgres!.clockIn(profileId: user.id, qrConfigId: null, latitude: position.latitude, longitude: position.longitude);
+        if (!_localPostgres.isConnected) await _localPostgres.initialize();
+        await _localPostgres.clockIn(profileId: user.id, qrConfigId: null, latitude: position.latitude, longitude: position.longitude);
       } else {
         // Supabase Mode
-        await _supabase!.from('attendance_logs').insert({
+        await _remoteSupabase.from('attendance_logs').insert({
           'profile_id': user.id,
           'clock_in_time': DateTime.now().toIso8601String(),
           'clock_in_lat': position.latitude,
@@ -121,15 +139,15 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
       final lng = position?.longitude ?? 0.0;
 
       if (AppConfig.isLocal) {
-        if (!_postgres!.isConnected) await _postgres!.initialize();
-        final history = await _postgres!.getAttendanceHistory(profileId: user.id, days: 1);
+        if (!_localPostgres.isConnected) await _localPostgres.initialize();
+        final history = await _localPostgres.getAttendanceHistory(profileId: user.id, days: 1);
         final activeLog = history.where((l) => l.clockOutTime == null).firstOrNull;
         if (activeLog != null) {
-          await _postgres!.clockOut(attendanceLogId: activeLog.id, latitude: lat, longitude: lng);
+          await _localPostgres.clockOut(attendanceLogId: activeLog.id, latitude: lat, longitude: lng);
         }
       } else {
         // Supabase Mode
-        final response = await _supabase!.from('attendance_logs')
+        final response = await _remoteSupabase.from('attendance_logs')
             .select('id')
             .eq('profile_id', user.id)
             .isFilter('clock_out_time', null)
@@ -138,7 +156,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
             .maybeSingle();
         
         if (response != null) {
-          await _supabase!.from('attendance_logs').update({
+          await _remoteSupabase.from('attendance_logs').update({
             'clock_out_time': DateTime.now().toIso8601String(),
             'clock_out_lat': lat,
             'clock_out_lng': lng,
@@ -165,14 +183,14 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
        double radius = 200;
 
        if (AppConfig.isLocal) {
-         if (!_postgres!.isConnected) await _postgres!.initialize();
-         final profile = await _postgres!.getProfile(user.id);
-         final company = await _postgres!.getCompany(profile.companyId);
+         if (!_localPostgres.isConnected) await _localPostgres.initialize();
+         final profile = await _localPostgres.getProfile(user.id);
+         final company = await _localPostgres.getCompany(profile.companyId);
          officeLat = company.latitude;
          officeLng = company.longitude;
          radius = company.geofenceRadius ?? 200;
        } else {
-         final company = await _supabase!.from('companies').select().eq('id', user.companyId!).single();
+         final company = await _remoteSupabase.from('companies').select().eq('id', user.companyId!).single();
          officeLat = company['latitude'];
          officeLng = company['longitude'];
          radius = company['geofence_radius']?.toDouble() ?? 200;

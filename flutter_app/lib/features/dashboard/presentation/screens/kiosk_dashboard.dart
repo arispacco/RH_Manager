@@ -5,6 +5,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
+import 'package:postgres/postgres.dart' show Sql;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 
