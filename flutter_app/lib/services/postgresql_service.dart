@@ -78,6 +78,26 @@ class PostgreSQLService {
           'hash': passwordHash,
         },
       );
+
+      // profiles.id references users(id), so mirror the new user into
+      // profiles. company_id is NOT NULL: default to the seeded company.
+      final result = await _connection.execute(
+        Sql.named('''
+          INSERT INTO profiles (id, email, first_name, last_name, role, status, company_id)
+          VALUES (
+            (SELECT id FROM users WHERE email = @email),
+            @email,
+            SPLIT_PART(@email, '@', 1),
+            '',
+            'employee'::app_role,
+            'active'::employee_status,
+            (SELECT id FROM companies ORDER BY created_at LIMIT 1)
+          )'''),
+        parameters: {'email': email},
+      );
+      if (result.affectedRows == 0) {
+        throw Exception('Failed to create profile for $email');
+      }
       _logger.i('Sign up successful: $email');
     } catch (e) {
       _logger.e('Sign up failed: $e');
