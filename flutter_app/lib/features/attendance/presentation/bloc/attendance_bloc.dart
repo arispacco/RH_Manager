@@ -5,6 +5,7 @@ import '../../../../app/di.dart';
 import '../../../../app/config.dart';
 import '../../../../core/services/location_service.dart';
 import '../../../../services/postgresql_service.dart';
+import '../../../../models/models.dart' as pg_models;
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import 'attendance_event.dart';
 import 'attendance_state.dart';
@@ -72,20 +73,21 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
           emit(state.copyWith(clockStatus: ClockStatus.idle));
         }
       } else {
-        // Supabase Mode
+        // Supabase Mode: live column names (user_id/clock_in/clock_out),
+        // parsed through the dual-key model.
         final response = await _remoteSupabase.from('attendance_logs')
             .select()
-            .eq('profile_id', user.id)
-            .order('clock_in_time', ascending: false)
+            .eq('user_id', user.id)
+            .order('clock_in', ascending: false)
             .limit(1)
             .maybeSingle();
-        
+
         if (response != null) {
-          final lastClockOut = response['clock_out_time'];
+          final log = pg_models.AttendanceLog.fromJson(response);
           emit(state.copyWith(
-            clockStatus: lastClockOut == null ? ClockStatus.clockedIn : ClockStatus.clockedOut,
-            clockInTime: DateTime.parse(response['clock_in_time']),
-            clockOutTime: lastClockOut != null ? DateTime.parse(lastClockOut) : null,
+            clockStatus: log.clockOutTime == null ? ClockStatus.clockedIn : ClockStatus.clockedOut,
+            clockInTime: log.clockInTime,
+            clockOutTime: log.clockOutTime,
           ));
         } else {
           emit(state.copyWith(clockStatus: ClockStatus.idle));
@@ -111,18 +113,24 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
       if (AppConfig.isLocal) {
         if (!_localPostgres.isConnected) await _localPostgres.initialize();
         await _localPostgres.clockIn(profileId: user.id, qrConfigId: null, latitude: position.latitude, longitude: position.longitude);
+        emit(state.copyWith(clockStatus: ClockStatus.clockedIn, clockInTime: DateTime.now()));
       } else {
-        // Supabase Mode
-        await _remoteSupabase.from('attendance_logs').insert({
-          'profile_id': user.id,
-          'clock_in_time': DateTime.now().toIso8601String(),
-          'clock_in_lat': position.latitude,
-          'clock_in_lng': position.longitude,
-          'status': 'present',
+        // Supabase Mode: secure RPC (token HMAC validation, rate limiting,
+        // geofence and late/on_time status handled server-side).
+        final result = await _remoteSupabase.rpc('clock_in', params: {
+          'scanned_token': event.qrToken,
+          'user_lat': position.latitude,
+          'user_lng': position.longitude,
         });
+        if (result is Map && result['success'] == false) {
+          throw Exception(_rpcErrorMessage(result));
+        }
+        emit(state.copyWith(
+          clockStatus: ClockStatus.clockedIn,
+          clockInTime: DateTime.now(),
+          errorMessage: result['status'] == 'late' ? _rpcMessage(result) : null,
+        ));
       }
-
-      emit(state.copyWith(clockStatus: ClockStatus.clockedIn, clockInTime: DateTime.now()));
     } catch (e) {
       emit(state.copyWith(clockStatus: ClockStatus.error, errorMessage: e.toString()));
     }
@@ -145,30 +153,30 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
         if (activeLog != null) {
           await _localPostgres.clockOut(attendanceLogId: activeLog.id, latitude: lat, longitude: lng);
         }
+        emit(state.copyWith(clockStatus: ClockStatus.clockedOut, clockOutTime: DateTime.now()));
       } else {
-        // Supabase Mode
-        final response = await _remoteSupabase.from('attendance_logs')
-            .select('id')
-            .eq('profile_id', user.id)
-            .isFilter('clock_out_time', null)
-            .order('clock_in_time', ascending: false)
-            .limit(1)
-            .maybeSingle();
-        
-        if (response != null) {
-          await _remoteSupabase.from('attendance_logs').update({
-            'clock_out_time': DateTime.now().toIso8601String(),
-            'clock_out_lat': lat,
-            'clock_out_lng': lng,
-          }).eq('id', response['id']);
+        // Supabase Mode: secure RPC closing the currently open log.
+        final result = await _remoteSupabase.rpc('clock_out');
+        if (result is Map && result['success'] == false) {
+          throw Exception(_rpcErrorMessage(result));
         }
+        emit(state.copyWith(clockStatus: ClockStatus.clockedOut, clockOutTime: DateTime.now()));
       }
-
-      emit(state.copyWith(clockStatus: ClockStatus.clockedOut, clockOutTime: DateTime.now()));
     } catch (e) {
       emit(state.copyWith(clockStatus: ClockStatus.error, errorMessage: e.toString()));
     }
   }
+
+  /// Extracts the human-readable message from an RPC jsonb response
+  /// ({success, message, ...}); PostgREST-level failures surface as
+  /// [sb.PostgrestException] and keep their message through [e.toString()].
+  String _rpcErrorMessage(dynamic result) =>
+      (result is Map && result['message'] is String && (result['message'] as String).isNotEmpty)
+          ? result['message'] as String
+          : 'Clock operation failed';
+
+  String _rpcMessage(dynamic result) =>
+      (result is Map && result['message'] is String) ? result['message'] as String : '';
 
   Future<void> _onLocationCheck(LocationCheckRequested event, Emitter<AttendanceState> emit) async {
      // Location check is mostly local logic (comparing current vs office coords)
