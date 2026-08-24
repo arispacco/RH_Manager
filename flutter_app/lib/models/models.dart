@@ -74,7 +74,9 @@ class Profile extends Equatable {
   final String? lastName;
   final String? phone;
   final String? avatarUrl;
-  final String companyId;
+
+  /// Nullable: the live Supabase schema allows profiles without a company.
+  final String? companyId;
   final AppRole role;
   final EmployeeStatus status;
   final DateTime createdAt;
@@ -87,7 +89,7 @@ class Profile extends Equatable {
     this.lastName,
     this.phone,
     this.avatarUrl,
-    required this.companyId,
+    this.companyId,
     required this.role,
     required this.status,
     required this.createdAt,
@@ -96,11 +98,21 @@ class Profile extends Equatable {
 
   String get fullName => '${firstName ?? ''} ${lastName ?? ''}'.trim();
 
-  factory Profile.fromJson(Map<String, dynamic> json) => Profile(
+  /// Dual-key parsing: supports the legacy/local schema
+  /// (first_name/last_name/status/email) and the live Supabase schema
+  /// (`name`, `is_active`, no email column).
+  factory Profile.fromJson(Map<String, dynamic> json) {
+    final rawName = (json['name'] as String?)?.trim();
+    final nameParts =
+        rawName?.split(' ').where((p) => p.isNotEmpty).toList() ?? const [];
+    return Profile(
+        // The email column does not exist in the live schema: inject the
+        // authenticated user's email at call site instead.
         id: json['id'],
-        email: json['email'],
-        firstName: json['first_name'],
-        lastName: json['last_name'],
+        email: json['email'] ?? '',
+        firstName: json['first_name'] ??
+            (nameParts.isNotEmpty ? nameParts.first : null),
+        lastName: nameParts.length > 1 ? nameParts.sublist(1).join(' ') : null,
         phone: json['phone'],
         avatarUrl: json['avatar_url'],
         companyId: json['company_id'],
@@ -108,13 +120,17 @@ class Profile extends Equatable {
           (e) => e.name == json['role'],
           orElse: () => AppRole.employee,
         ),
-        status: EmployeeStatus.values.firstWhere(
-          (e) => e.name == json['status'],
-          orElse: () => EmployeeStatus.active,
-        ),
+        status: json['status'] != null
+            ? EmployeeStatus.values.firstWhere(
+                (e) => e.name == json['status'],
+                orElse: () => EmployeeStatus.active,
+              )
+            : json['is_active'] == false
+                ? EmployeeStatus.inactive
+                : EmployeeStatus.active,
         createdAt: DateTime.parse(json['created_at']),
-        updatedAt: DateTime.parse(json['updated_at']),
-      );
+        updatedAt: DateTime.parse(json['updated_at']));
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -221,13 +237,17 @@ class AttendanceLog extends Equatable {
     required this.updatedAt,
   });
 
+  /// Dual-key parsing: supports the local schema
+  /// (profile_id/clock_in_time/clock_out_time) and the live Supabase schema
+  /// (user_id/clock_in/clock_out). The first non-null key wins.
   factory AttendanceLog.fromJson(Map<String, dynamic> json) => AttendanceLog(
         id: json['id'],
-        profileId: json['profile_id'],
+        profileId: json['profile_id'] ?? json['user_id'],
         qrConfigId: json['qr_config_id'],
-        clockInTime: DateTime.parse(json['clock_in_time']),
-        clockOutTime: json['clock_out_time'] != null
-            ? DateTime.parse(json['clock_out_time'])
+        clockInTime:
+            DateTime.parse(json['clock_in_time'] ?? json['clock_in']),
+        clockOutTime: (json['clock_out_time'] ?? json['clock_out']) != null
+            ? DateTime.parse(json['clock_out_time'] ?? json['clock_out'])
             : null,
         clockInLat: json['clock_in_lat'],
         clockInLng: json['clock_in_lng'],
@@ -242,6 +262,8 @@ class AttendanceLog extends Equatable {
         updatedAt: DateTime.parse(json['updated_at']),
       );
 
+  /// Insert via RPC clock_in/clock_out in Supabase mode; kept for the
+  /// local PostgreSQL mode.
   Map<String, dynamic> toJson() => {
         'id': id,
         'profile_id': profileId,
