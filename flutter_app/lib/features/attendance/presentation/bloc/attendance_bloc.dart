@@ -190,10 +190,17 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
        double? officeLng;
        double radius = 200;
 
-       if (AppConfig.isLocal) {
-         if (!_localPostgres.isConnected) await _localPostgres.initialize();
-         final profile = await _localPostgres.getProfile(user.id);
-         final company = await _localPostgres.getCompany(profile.companyId);
+      if (AppConfig.isLocal) {
+        if (!_localPostgres.isConnected) await _localPostgres.initialize();
+        final profile = await _localPostgres.getProfile(user.id);
+        final companyId = profile.companyId;
+        if (companyId == null) {
+          emit(state.copyWith(
+              locationStatus: LocationStatus.error,
+              locationMessage: 'Profile has no company'));
+          return;
+        }
+        final company = await _localPostgres.getCompany(companyId);
          officeLat = company.latitude;
          officeLng = company.longitude;
          radius = company.geofenceRadius ?? 200;

@@ -117,7 +117,8 @@ class Profile extends Equatable {
         email: json['email'] ?? '',
         firstName: json['first_name'] ??
             (nameParts.isNotEmpty ? nameParts.first : null),
-        lastName: nameParts.length > 1 ? nameParts.sublist(1).join(' ') : null,
+        lastName: json['last_name'] ??
+            (nameParts.length > 1 ? nameParts.sublist(1).join(' ') : null),
         phone: json['phone'],
         avatarUrl: json['avatar_url'],
         companyId: json['company_id'],
@@ -244,8 +245,13 @@ class AttendanceLog extends Equatable {
 
   /// Dual-key parsing: supports the local schema
   /// (profile_id/clock_in_time/clock_out_time) and the live Supabase schema
-  /// (user_id/clock_in/clock_out). The first non-null key wins.
-  factory AttendanceLog.fromJson(Map<String, dynamic> json) => AttendanceLog(
+  /// (user_id/clock_in/clock_out). The first non-null key wins. The live
+  /// table has no created_at/updated_at columns: they fall back to the
+  /// clock-in timestamp.
+  factory AttendanceLog.fromJson(Map<String, dynamic> json) {
+    final createdRaw =
+        json['created_at'] ?? json['clock_in_time'] ?? json['clock_in'];
+    return AttendanceLog(
         id: json['id'],
         profileId: json['profile_id'] ?? json['user_id'],
         qrConfigId: json['qr_config_id'],
@@ -263,9 +269,10 @@ class AttendanceLog extends Equatable {
           orElse: () => AttendanceStatus.clockedOut,
         ),
         notes: json['notes'],
-        createdAt: DateTime.parse(json['created_at']),
-        updatedAt: DateTime.parse(json['updated_at']),
-      );
+        createdAt: DateTime.parse(createdRaw),
+        updatedAt: DateTime.parse(
+            json['updated_at'] ?? json['clock_out_time'] ?? json['clock_out'] ?? createdRaw));
+  }
 
   /// Insert via RPC clock_in/clock_out in Supabase mode; kept for the
   /// local PostgreSQL mode.
