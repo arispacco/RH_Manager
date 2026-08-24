@@ -1,4 +1,10 @@
 -- ============================================================
+-- ARCHIVÉ — ne jamais appliquer au projet piavdhrlayfsnrfhqbww ;
+-- le schéma live contient des migrations plus récentes sous le même
+-- numéro. Conservé pour référence historique du mode local.
+-- ============================================================
+--
+-- ============================================================
 -- Migration 4 — Schema completion & alignment (INCREMENTAL)
 -- ============================================================
 -- Aligns the cloud schema with what the Flutter app consumes

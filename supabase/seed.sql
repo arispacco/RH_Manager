@@ -1,4 +1,12 @@
 -- ============================================================
+-- AVERTISSEMENT — Seed conçu pour un NOUVEAU projet Supabase vierge
+-- (ou le mode local). Ne PAS exécuter sur le projet live
+-- piavdhrlayfsnrfhqbww (données réelles présentes, trigger
+-- handle_new_user durci qui refuserait ces inserts sans metadata
+-- conformes).
+-- ============================================================
+
+-- ============================================================
 -- Seed data for testing RH_Manager (Supabase cloud schema)
 -- Run this after applying all migrations 1 -> 4.
 --
