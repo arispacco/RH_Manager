@@ -98,6 +98,11 @@ class Profile extends Equatable {
 
   String get fullName => '${firstName ?? ''} ${lastName ?? ''}'.trim();
 
+  /// Returns a copy with the email resolved from the auth session (the
+  /// live profiles table has no email column).
+  Profile copyWithEmail(String value) =>
+      value.isEmpty ? this : Profile(id: id, email: value, firstName: firstName, lastName: lastName, phone: phone, avatarUrl: avatarUrl, companyId: companyId, role: role, status: status, createdAt: createdAt, updatedAt: updatedAt);
+
   /// Dual-key parsing: supports the legacy/local schema
   /// (first_name/last_name/status/email) and the live Supabase schema
   /// (`name`, `is_active`, no email column).

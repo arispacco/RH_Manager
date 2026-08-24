@@ -83,7 +83,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         if (response.user != null) {
           await _secureStorage.write(key: _sessionKey, value: response.user!.id);
           final profileData = await _remoteSupabase.from('profiles').select().eq('id', response.user!.id).single();
-          final profile = pg_models.Profile.fromJson(profileData);
+          // The live profiles table has no email column: inject the
+          // authenticated user's email from the auth session.
+          final profile = pg_models.Profile.fromJson(profileData)
+              .copyWithEmail(response.user!.email ?? '');
           emit(state.copyWith(status: AuthStatus.authenticated, user: _mapProfileToUserEntity(profile)));
         }
       }
